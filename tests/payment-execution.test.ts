@@ -45,6 +45,39 @@ describe('live payment/execution adapter contracts', () => {
     expect(requirements.extra.assetTransferMethod).toBe('eip3009');
   });
 
+  it('builds x402 exact payment requirements for Base Sepolia when the network profile is switched', () => {
+    const previousBaseNetwork = process.env.BASE_NETWORK;
+    const previousPublicBaseNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK;
+    process.env.BASE_NETWORK = 'base-sepolia';
+    process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-sepolia';
+    try {
+      const requirements = buildX402PaymentRequirements({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 });
+      expect(requirements).toMatchObject({ scheme: 'exact', network: 'eip155:84532', amount: '300000' });
+      expect(requirements.asset).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
+    } finally {
+      process.env.BASE_NETWORK = previousBaseNetwork;
+      process.env.NEXT_PUBLIC_BASE_NETWORK = previousPublicBaseNetwork;
+    }
+  });
+
+  it('rejects stale x402 payment token when Base Sepolia profile is active', () => {
+    const previousBaseNetwork = process.env.BASE_NETWORK;
+    const previousPublicBaseNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK;
+    const previousPaymentToken = process.env.X402_PAYMENT_TOKEN;
+    process.env.BASE_NETWORK = 'base-sepolia';
+    process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-sepolia';
+    process.env.X402_PAYMENT_TOKEN = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+    try {
+      expect(() => buildX402PaymentRequirements({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 })).toThrow(/X402_PAYMENT_TOKEN/);
+    } finally {
+      process.env.BASE_NETWORK = previousBaseNetwork;
+      process.env.NEXT_PUBLIC_BASE_NETWORK = previousPublicBaseNetwork;
+      if (previousPaymentToken === undefined) delete process.env.X402_PAYMENT_TOKEN;
+      else process.env.X402_PAYMENT_TOKEN = previousPaymentToken;
+    }
+  });
+
+
   it('creates an agent x402 payment intent without direct user-wallet transfer requests', () => {
     const intent = createAgentX402PaymentIntent({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 });
     expect(intent.paymentTxHash).toBeUndefined();

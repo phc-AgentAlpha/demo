@@ -1,4 +1,4 @@
-import { BASE_TOKENS } from '@/lib/chains';
+import { tokenAddress } from '@/lib/chains';
 
 export const MAX_AGENT_DEPOSIT_USDC = 1;
 export const USDC_DECIMALS = 6;
@@ -44,15 +44,15 @@ export function encodeErc20Transfer(to: string, amountUnits: bigint): `0x${strin
 }
 
 export function buildAgentUsdcDepositTx(input: AgentDepositTxInput): WalletSendTransactionParams {
-  const tokenAddress = input.tokenAddress ?? BASE_TOKENS.USDC.address;
+  const usdcTokenAddress = input.tokenAddress ?? tokenAddress('USDC');
   assertBaseAddress(input.from);
   assertBaseAddress(input.to);
-  assertBaseAddress(tokenAddress);
+  assertBaseAddress(usdcTokenAddress);
 
   const amountUnits = parseUsdcAmountToUnits(input.amountUsdc, input.maxUsdc);
   return {
     from: input.from,
-    to: tokenAddress,
+    to: usdcTokenAddress,
     value: '0x0',
     data: encodeErc20Transfer(input.to, amountUnits),
   };

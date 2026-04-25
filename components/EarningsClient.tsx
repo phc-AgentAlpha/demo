@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { explorerTxUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import { summarizeEarnings, type EarningsPeriod } from '@/lib/scenario-flow';
 import type { RevenueDistributionEvent } from '@/lib/types';
 import { StatusChip } from './StatusChip';
@@ -17,6 +18,7 @@ function short(value: string) {
 export function EarningsClient({ events }: { events: RevenueDistributionEvent[] }) {
   const { t } = useI18n();
   const [period, setPeriod] = useState<EarningsPeriod>('30d');
+  const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
   const summary = useMemo(() => summarizeEarnings(period, events), [period, events]);
   const rows = events.map((event, index) => {
     const mine = event.distributions.filter((dist) => dist.role !== 'platform').reduce((sum, dist) => sum + dist.amountUsdc, 0);
@@ -88,7 +90,7 @@ export function EarningsClient({ events }: { events: RevenueDistributionEvent[] 
                   {event.source === 'derived' ? <div className="text-xs font-normal text-slate-500">{t('detailOriginal')} {rootShare.toFixed(2)} USDC</div> : null}
                 </td>
                 <td>
-                  {proofHash ? <a className="text-accent underline" href={`https://basescan.org/tx/${proofHash}`} target="_blank" rel="noreferrer">{new Date(event.createdAt).toLocaleDateString()}</a> : new Date(event.createdAt).toLocaleDateString()}
+                  {proofHash ? <a className="text-accent underline" href={explorerTxUrl(proofHash, publicBaseProfile)} target="_blank" rel="noreferrer">{new Date(event.createdAt).toLocaleDateString()}</a> : new Date(event.createdAt).toLocaleDateString()}
                 </td>
               </tr>
             ))}

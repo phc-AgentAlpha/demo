@@ -1,4 +1,4 @@
-import { tokenAddress } from '../chains';
+import { getBaseNetworkProfile, tokenAddress } from '../chains';
 import { getRuntimeConfig } from '../env';
 import { verifyBaseTx } from '../tx/verify-base-tx';
 import type { ExecutionEvent, TradeSignalPayload } from '../types';
@@ -15,11 +15,12 @@ export interface PreparedExecution extends ExecutionEvent {
   instructions: string[];
 }
 
-export function buildPancakeSwapDeepLink(payload: TradeSignalPayload, amountUsdc: number, slippageBps: number) {
+export function buildPancakeSwapDeepLink(payload: TradeSignalPayload, amountUsdc: number, slippageBps: number, chain = getBaseNetworkProfile().pancakeSwapChain) {
+  if (!chain.trim()) throw new Error('PANCAKESWAP_CHAIN must be configured for the active Base network.');
   const inputCurrency = tokenAddress(payload.suggestedInputToken);
   const outputCurrency = tokenAddress(payload.suggestedOutputToken);
   const params = new URLSearchParams({
-    chain: 'base',
+    chain,
     inputCurrency,
     outputCurrency,
     exactAmount: amountUsdc.toString(),
@@ -35,7 +36,7 @@ export function preparePancakeExecution(input: PrepareExecutionInput): PreparedE
   if (!/^0x[a-fA-F0-9]{40}$/.test(input.walletAddress)) throw new Error('A valid wallet address is required.');
   const amount = Math.min(input.payload.suggestedAmountUsdc, config.caps.maxSwapUsdc);
   if (amount <= 0 || amount > config.caps.maxSwapUsdc) throw new Error('Execution amount violates demo swap cap.');
-  const deeplinkUrl = buildPancakeSwapDeepLink(input.payload, amount, config.caps.slippageBps);
+  const deeplinkUrl = buildPancakeSwapDeepLink(input.payload, amount, config.caps.slippageBps, config.pancakeSwapChain);
   const inputTokenAddress = tokenAddress(input.payload.suggestedInputToken);
   const outputTokenAddress = tokenAddress(input.payload.suggestedOutputToken);
 

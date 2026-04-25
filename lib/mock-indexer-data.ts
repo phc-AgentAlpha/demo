@@ -1,3 +1,4 @@
+import { BASE_CHAIN_ID } from './chains';
 import type { ExcludedCandidate, Signal } from './types';
 
 const BASE_TIME = Date.UTC(2026, 3, 25, 0, 0, 0);
@@ -136,7 +137,7 @@ export const excludedCandidates: ExcludedCandidate[] = [
 
 export const mockIndexedSnapshot = {
   generatedAt: BASE_TIME,
-  chainId: 8453,
+  chainId: BASE_CHAIN_ID,
   mode: 'mock-indexer-only',
   signals: mockIndexedSignals,
   userSignals: [mockUserSignal],

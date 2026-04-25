@@ -14,8 +14,26 @@ process.env.X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 process.env.NEXT_PUBLIC_ENABLE_REAL_SWAPS = 'true';
 process.env.AGENTALPHA_MOCK_TX_VERIFIER = 'true';
 process.env.AGENTALPHA_MOCK_X402_SETTLEMENT = 'true';
+process.env.BASE_NETWORK = 'base-mainnet';
+process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-mainnet';
+delete process.env.BASE_CHAIN_ID;
+delete process.env.NEXT_PUBLIC_BASE_CHAIN_ID;
+delete process.env.BASE_RPC_URL;
+delete process.env.NEXT_PUBLIC_BASE_RPC_URL;
+delete process.env.BASE_USDC_ADDRESS;
+delete process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS;
+delete process.env.X402_NETWORK;
 
 beforeEach(() => {
+  process.env.BASE_NETWORK = 'base-mainnet';
+  process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-mainnet';
+  delete process.env.BASE_CHAIN_ID;
+  delete process.env.NEXT_PUBLIC_BASE_CHAIN_ID;
+  delete process.env.BASE_RPC_URL;
+  delete process.env.NEXT_PUBLIC_BASE_RPC_URL;
+  delete process.env.BASE_USDC_ADDRESS;
+  delete process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS;
+  delete process.env.X402_NETWORK;
   const file = path.join(os.tmpdir(), `agentalpha-ledger-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
   process.env.AGENTALPHA_LEDGER_PATH = file;
   fs.mkdirSync(path.dirname(file), { recursive: true });

@@ -78,7 +78,7 @@ export async function getCdpAgentPaymentSigner(profile: UserProfile) {
   if (smartAccount.address.toLowerCase() !== profile.agentWalletAddress?.toLowerCase()) {
     throw new Error('CDP smart account does not match the persisted agent wallet.');
   }
-  const baseAccount = await smartAccount.useNetwork('base');
+  const baseAccount = await smartAccount.useNetwork(config.cdp.network);
   return {
     address: baseAccount.address,
     signTypedData: baseAccount.signTypedData,

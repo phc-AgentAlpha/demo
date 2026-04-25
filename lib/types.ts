@@ -1,3 +1,5 @@
+import type { BaseX402Network } from './chains';
+
 export type QualityTier = 'verified' | 'discovered';
 export type QualityTierFilter = QualityTier | 'all';
 export type SignalSource = 'indexed' | 'user' | 'derived';
@@ -131,7 +133,7 @@ export interface X402PaymentRequest {
   protocol: 'x402';
   version: 2;
   scheme: 'exact';
-  network: 'eip155:8453';
+  network: BaseX402Network;
   resourceUrl: string;
   facilitatorUrl: string;
   paymentExecutor: 'agent';
@@ -142,7 +144,7 @@ export interface X402PaymentRequest {
   amountUsdc: number;
   paymentRequirements: {
     scheme: 'exact';
-    network: 'eip155:8453';
+    network: BaseX402Network;
     amount: string;
     asset: `0x${string}`;
     payTo: `0x${string}`;
@@ -160,7 +162,7 @@ export interface X402SettlementProof {
   success: true;
   payer: `0x${string}`;
   transaction: `0x${string}`;
-  network: 'eip155:8453';
+  network: BaseX402Network;
   amount: string;
   resourceUrl: string;
   paymentResponseHeader: string;

@@ -5,12 +5,11 @@ import { wrapFetchWithPayment, x402Client } from '@x402/fetch';
 import type { ClientEvmSigner } from '@x402/evm';
 import { registerExactEvmScheme } from '@x402/evm/exact/client';
 import { registerExactEvmScheme as registerExactEvmServerScheme } from '@x402/evm/exact/server';
-import { BASE_TOKENS, explorerTxUrl } from '../chains';
+import { explorerTxUrl, type BaseX402Network } from '../chains';
 import { getRuntimeConfig } from '../env';
 import { usdcUnits, verifyBaseTx } from '../tx/verify-base-tx';
 import type { PurchaseEvent, UserProfile, X402PaymentRequest, X402SettlementProof } from '../types';
 
-const X402_BASE_NETWORK = 'eip155:8453' as const;
 const X402_PAYMENT_TIMEOUT_SECONDS = 300;
 
 export interface CreateAgentX402PaymentInput {
@@ -58,9 +57,9 @@ export function buildX402PaymentRequirements(input: CreateAgentX402PaymentInput)
   const amountUnits = usdcUnits(input.priceUsdc).toString();
   return {
     scheme: 'exact',
-    network: X402_BASE_NETWORK,
+    network: config.x402Network,
     amount: amountUnits,
-    asset: (config.x402PaymentToken || BASE_TOKENS.USDC.address) as `0x${string}`,
+    asset: config.x402PaymentToken,
     payTo: receiverAddress,
     maxTimeoutSeconds: X402_PAYMENT_TIMEOUT_SECONDS,
     extra: {
@@ -79,7 +78,7 @@ export function buildAgentX402PaymentRequest(input: CreateAgentX402PaymentInput)
     protocol: 'x402',
     version: 2,
     scheme: 'exact',
-    network: X402_BASE_NETWORK,
+    network: config.x402Network,
     resourceUrl: buildResourceUrl(input.signalId, input.resourceUrl),
     facilitatorUrl: config.x402FacilitatorUrl,
     paymentExecutor: 'agent',
@@ -119,9 +118,9 @@ export function createAgentX402PaymentIntent(input: CreateAgentX402PaymentInput)
   };
 }
 
-export function createAgentX402Fetch(signer: ClientEvmSigner, fetchImpl: typeof fetch = fetch) {
+export function createAgentX402Fetch(signer: ClientEvmSigner, fetchImpl: typeof fetch = fetch, network: BaseX402Network = getRuntimeConfig().x402Network) {
   const client = new x402Client();
-  registerExactEvmScheme(client, { signer, networks: [X402_BASE_NETWORK] });
+  registerExactEvmScheme(client, { signer, networks: [network] });
   return wrapFetchWithPayment(fetchImpl, client);
 }
 
@@ -134,15 +133,15 @@ export async function fetchWithAgentX402(input: { signer: ClientEvmSigner; resou
   };
 }
 
-function createX402ResourceServer(facilitatorUrl: string) {
+function createX402ResourceServer(facilitatorUrl: string, network: BaseX402Network) {
   const server = new x402ResourceServer(new HTTPFacilitatorClient({ url: facilitatorUrl }));
-  registerExactEvmServerScheme(server, { networks: [X402_BASE_NETWORK] });
+  registerExactEvmServerScheme(server, { networks: [network] });
   return server;
 }
 
-function createX402Client(signer: ClientEvmSigner) {
+function createX402Client(signer: ClientEvmSigner, network: BaseX402Network) {
   const client = new x402Client();
-  registerExactEvmScheme(client, { signer, networks: [X402_BASE_NETWORK] });
+  registerExactEvmScheme(client, { signer, networks: [network] });
   return client;
 }
 
@@ -160,7 +159,7 @@ export async function executeAgentX402Payment(input: { profile: UserProfile; pur
         success: true,
         payer: x402.agentWalletAddress,
         transaction: `0x${'9'.repeat(64)}`,
-        network: X402_BASE_NETWORK,
+        network: x402.network,
         amount: x402.amountUnits,
       },
       verifiedBy: 'test_x402_mock',
@@ -168,7 +167,7 @@ export async function executeAgentX402Payment(input: { profile: UserProfile; pur
   }
 
   if (!input.signer) throw new Error('A CDP agent signer is required to execute live x402 payment.');
-  const server = createX402ResourceServer(x402.facilitatorUrl);
+  const server = createX402ResourceServer(x402.facilitatorUrl, x402.network);
   await server.initialize();
   const requirements = await server.buildPaymentRequirements({
     scheme: x402.scheme,
@@ -182,7 +181,7 @@ export async function executeAgentX402Payment(input: { profile: UserProfile; pur
     description: `AgentAlpha signal ${purchase.signalId}`,
     mimeType: 'application/json',
   });
-  const paymentPayload = await createX402Client(input.signer).createPaymentPayload(paymentRequired);
+  const paymentPayload = await createX402Client(input.signer, x402.network).createPaymentPayload(paymentRequired);
   const matchingRequirements = server.findMatchingRequirements(paymentRequired.accepts, paymentPayload);
   if (!matchingRequirements) throw new Error('x402 client did not create a payload matching AgentAlpha payment requirements.');
   const verification = await server.verifyPayment(paymentPayload, matchingRequirements);
@@ -210,7 +209,7 @@ async function completeX402Settlement(input: {
   const { purchase, x402, settlement } = input;
   if (purchase.paymentMode !== 'x402') throw new Error('Purchase is not an x402 payment.');
   if (!settlement.success) throw new Error(settlement.errorMessage ?? settlement.errorReason ?? 'x402 settlement failed.');
-  if (settlement.network !== X402_BASE_NETWORK) throw new Error('x402 settlement was not on Base mainnet.');
+  if (settlement.network !== x402.network) throw new Error(`x402 settlement was not on the configured Base network ${x402.network}.`);
   if (!settlement.payer) throw new Error('x402 settlement response did not include payer.');
   assertWalletAddress(settlement.payer);
   if (settlement.payer.toLowerCase() !== x402.agentWalletAddress.toLowerCase()) throw new Error('x402 settlement payer does not match the issued agent wallet.');
@@ -230,7 +229,7 @@ async function completeX402Settlement(input: {
     success: true,
     payer: settlement.payer,
     transaction,
-    network: X402_BASE_NETWORK,
+    network: x402.network,
     amount: settlement.amount ?? x402.amountUnits,
     resourceUrl: input.paymentPayload?.resource?.url ?? x402.resourceUrl,
     paymentResponseHeader,
@@ -247,7 +246,7 @@ async function completeX402Settlement(input: {
     paymentExecutor: 'agent',
     paymentTxHash: transaction,
     paymentStatus: verified.status,
-    explorerUrl: explorerTxUrl(transaction),
+    explorerUrl: verified.explorerUrl,
     confirmedAt: verified.status === 'confirmed' ? Date.now() : purchase.confirmedAt,
     x402ResourceUrl: x402.resourceUrl,
     x402Settlement,

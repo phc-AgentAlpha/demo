@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { explorerAddressUrl } from '@/lib/chains';
+import { explorerAddressUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import type { AssetPreference, ClassifyStyleResponse, RiskPreference, TimeHorizon, UserProfile } from '@/lib/types';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
@@ -40,6 +40,7 @@ interface AgentIssueResponse {
 
 export function OnboardingForm() {
   const { t } = useI18n();
+  const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [riskPreference, setRiskPreference] = useState<RiskPreference>('medium');
@@ -154,7 +155,7 @@ export function OnboardingForm() {
               {profile.agentWalletAddress ? (
                 <a
                   className="mt-2 inline-block font-bold underline"
-                  href={explorerAddressUrl(profile.agentWalletAddress)}
+                  href={explorerAddressUrl(profile.agentWalletAddress, publicBaseProfile)}
                   target="_blank"
                   rel="noreferrer"
                 >

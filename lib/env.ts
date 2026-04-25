@@ -1,4 +1,4 @@
-import { BASE_CHAIN_ID, BASE_RPC_DEFAULT, BASE_TOKENS } from './chains';
+import { getBaseNetworkProfile, tokenAddress } from './chains';
 
 export function numberEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -19,6 +19,23 @@ export function optionalAddressEnv(name: string): `0x${string}` | undefined {
   if (!value) return undefined;
   if (!/^0x[a-fA-F0-9]{40}$/.test(value)) throw new Error(`Invalid address env ${name}`);
   return value as `0x${string}`;
+}
+
+
+function x402PaymentTokenEnv(profileUsdcAddress: `0x${string}`) {
+  const token = optionalAddressEnv('X402_PAYMENT_TOKEN');
+  if (!token) return profileUsdcAddress;
+  if (token.toLowerCase() !== profileUsdcAddress.toLowerCase()) {
+    throw new Error('X402_PAYMENT_TOKEN must match the selected Base profile USDC address for this demo. Leave it blank to use the profile default.');
+  }
+  return token;
+}
+
+function optionalX402NetworkEnv(name: string, fallback: 'eip155:8453' | 'eip155:84532') {
+  const value = process.env[name]?.trim();
+  if (!value) return fallback;
+  if (value !== 'eip155:8453' && value !== 'eip155:84532') throw new Error(`${name} must be eip155:8453 or eip155:84532`);
+  return value;
 }
 
 export function getDemoCaps() {
@@ -56,16 +73,34 @@ export function getRuntimeConfig() {
     throw new Error('INDEXER_MODE must remain mock. Live Alchemy/Base-wide indexing is out of scope.');
   }
 
+  const baseNetworkProfile = getBaseNetworkProfile();
+  const usdcAddress = tokenAddress('USDC', baseNetworkProfile);
+  const x402Network = optionalX402NetworkEnv('X402_NETWORK', baseNetworkProfile.x402Network);
+  if (x402Network !== baseNetworkProfile.x402Network) {
+    throw new Error(`X402_NETWORK=${x402Network} conflicts with BASE_NETWORK=${baseNetworkProfile.key} (${baseNetworkProfile.x402Network}).`);
+  }
+
   return {
     indexerMode,
-    baseChainId: numberEnv('BASE_CHAIN_ID', BASE_CHAIN_ID),
-    baseRpcUrl: process.env.BASE_RPC_URL ?? BASE_RPC_DEFAULT,
+    baseNetwork: baseNetworkProfile.key,
+    baseNetworkProfile,
+    baseChainId: baseNetworkProfile.chainId,
+    baseChainIdHex: baseNetworkProfile.chainIdHex,
+    baseRpcUrl: baseNetworkProfile.rpcUrl,
+    baseExplorerUrl: baseNetworkProfile.explorerUrl,
+    baseExplorerTxBaseUrl: baseNetworkProfile.explorerTxBaseUrl,
+    baseExplorerAddressBaseUrl: baseNetworkProfile.explorerAddressBaseUrl,
+    baseCdpApiNetwork: baseNetworkProfile.cdpApiNetwork,
+    baseCdpRpcNetwork: baseNetworkProfile.cdpRpcNetwork,
+    baseCdpSdkNetwork: baseNetworkProfile.cdpSdkNetwork,
+    pancakeSwapChain: baseNetworkProfile.pancakeSwapChain,
     platformWalletAddress: optionalAddressEnv('PLATFORM_WALLET_ADDRESS'),
-    usdcAddress: (process.env.BASE_USDC_ADDRESS as `0x${string}` | undefined) ?? BASE_TOKENS.USDC.address,
+    usdcAddress,
     realPaymentsEnabled: booleanEnv('NEXT_PUBLIC_ENABLE_REAL_PAYMENTS', true),
     realSwapsEnabled: booleanEnv('NEXT_PUBLIC_ENABLE_REAL_SWAPS', true),
     x402FacilitatorUrl: process.env.X402_FACILITATOR_URL ?? '',
-    x402PaymentToken: process.env.X402_PAYMENT_TOKEN ?? BASE_TOKENS.USDC.address,
+    x402Network,
+    x402PaymentToken: x402PaymentTokenEnv(usdcAddress),
     x402ReceiverAddress: optionalAddressEnv('X402_RECEIVER_ADDRESS'),
     x402ResourceBaseUrl: process.env.X402_RESOURCE_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''),
     cdp: {
@@ -73,6 +108,9 @@ export function getRuntimeConfig() {
       apiKeyId: process.env.CDP_API_KEY_ID ?? process.env.CDP_API_KEY_NAME ?? '',
       apiKeySecret: process.env.CDP_API_KEY_SECRET ?? process.env.CDP_API_KEY_PRIVATE_KEY ?? '',
       walletSecret: process.env.CDP_WALLET_SECRET ?? '',
+      network: baseNetworkProfile.cdpSdkNetwork,
+      apiNetwork: baseNetworkProfile.cdpApiNetwork,
+      rpcNetwork: baseNetworkProfile.cdpRpcNetwork,
     },
     caps: getDemoCaps(),
     flock: getFlockConfig(),
@@ -83,11 +121,15 @@ export function getClientSafeConfig() {
   const config = getRuntimeConfig();
   return {
     indexerMode: config.indexerMode,
+    baseNetwork: config.baseNetwork,
+    baseNetworkLabel: config.baseNetworkProfile.label,
     baseChainId: config.baseChainId,
+    baseChainIdHex: config.baseChainIdHex,
     realPaymentsEnabled: config.realPaymentsEnabled,
     realSwapsEnabled: config.realSwapsEnabled,
     platformWalletConfigured: Boolean(config.platformWalletAddress),
     usdcAddress: config.usdcAddress,
+    x402Network: config.x402Network,
     caps: config.caps,
     flockMode: config.flock.apiKey ? 'flock-first' : 'fallback-ready',
   };

@@ -1,4 +1,4 @@
-import { BASE_CHAIN_ID, BASE_RPC_DEFAULT, BASE_TOKENS, explorerTxUrl } from '../chains';
+import { BASE_TOKENS, explorerTxUrl } from '../chains';
 import { getRuntimeConfig } from '../env';
 
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -20,7 +20,7 @@ export interface RpcReceipt {
 
 export interface VerifiedTx {
   txHash: string;
-  chainId: 8453;
+  chainId: 8453 | 84532;
   status: 'confirmed' | 'pending' | 'failed';
   explorerUrl: string;
   receipt?: RpcReceipt;
@@ -100,22 +100,22 @@ export function findErc20Transfer(receipt: RpcReceipt, args: { tokenAddress: str
 
 export async function verifyBaseTx(txHash: string, options: VerifyBaseTxOptions = {}): Promise<VerifiedTx> {
   assertRealTxHash(txHash);
+  const config = getRuntimeConfig();
 
   if (process.env.AGENTALPHA_MOCK_TX_VERIFIER === 'true') {
     if (!isTestVerifierAllowed()) throw new Error('AGENTALPHA_MOCK_TX_VERIFIER is only allowed in test mode');
-    return { txHash, chainId: BASE_CHAIN_ID, status: 'confirmed', explorerUrl: explorerTxUrl(txHash), confirmations: 1 };
+    return { txHash, chainId: config.baseChainId, status: 'confirmed', explorerUrl: explorerTxUrl(txHash, config.baseNetworkProfile), confirmations: 1 };
   }
 
-  const config = getRuntimeConfig();
-  const rpcUrl = options.rpcUrl ?? config.baseRpcUrl ?? BASE_RPC_DEFAULT;
+  const rpcUrl = options.rpcUrl ?? config.baseRpcUrl;
   const requiredConfirmations = options.requiredConfirmations ?? 1;
   const chainIdHex = await rpc<string>('eth_chainId', [], rpcUrl);
-  if (Number.parseInt(chainIdHex, 16) !== BASE_CHAIN_ID) throw new Error(`Expected Base chain ${BASE_CHAIN_ID}, got ${chainIdHex}`);
+  if (Number.parseInt(chainIdHex, 16) !== config.baseChainId) throw new Error(`Expected Base chain ${config.baseChainId}, got ${chainIdHex}`);
 
   const receipt = await rpc<RpcReceipt | null>('eth_getTransactionReceipt', [txHash], rpcUrl);
-  if (!receipt) return { txHash, chainId: BASE_CHAIN_ID, status: 'pending', explorerUrl: explorerTxUrl(txHash), confirmations: 0 };
+  if (!receipt) return { txHash, chainId: config.baseChainId, status: 'pending', explorerUrl: explorerTxUrl(txHash, config.baseNetworkProfile), confirmations: 0 };
 
-  if (receipt.status !== '0x1') return { txHash, chainId: BASE_CHAIN_ID, status: 'failed', explorerUrl: explorerTxUrl(txHash), receipt, confirmations: 0 };
+  if (receipt.status !== '0x1') return { txHash, chainId: config.baseChainId, status: 'failed', explorerUrl: explorerTxUrl(txHash, config.baseNetworkProfile), receipt, confirmations: 0 };
 
   const latest = await rpc<string>('eth_blockNumber', [], rpcUrl);
   const confirmations = receipt.blockNumber ? Number.parseInt(latest, 16) - Number.parseInt(receipt.blockNumber, 16) + 1 : 0;
@@ -148,9 +148,9 @@ export async function verifyBaseTx(txHash: string, options: VerifyBaseTxOptions 
 
   return {
     txHash,
-    chainId: BASE_CHAIN_ID,
+    chainId: config.baseChainId,
     status: confirmations >= requiredConfirmations ? 'confirmed' : 'pending',
-    explorerUrl: explorerTxUrl(txHash),
+    explorerUrl: explorerTxUrl(txHash, config.baseNetworkProfile),
     receipt,
     confirmations,
   };

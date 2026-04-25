@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { BASE_CHAIN_ID_HEX, BASE_RPC_DEFAULT, explorerAddressUrl, explorerTxUrl } from '@/lib/chains';
+import { baseWalletChainParams, explorerAddressUrl, explorerTxUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import type { UserProfile } from '@/lib/types';
 import { buildAgentUsdcDepositTx, MAX_AGENT_DEPOSIT_USDC } from '@/lib/wallet/agent-wallet';
 import { useI18n } from './I18nProvider';
@@ -45,14 +45,15 @@ async function connectBaseWallet(messages: { noProvider: string; noAccount: stri
   const accounts = await window.ethereum.request<string[]>({ method: 'eth_requestAccounts' });
   const account = accounts[0];
   if (!account) throw new Error(messages.noAccount);
+  const chainParams = baseWalletChainParams(getPublicBaseNetworkProfile());
   const chainId = await window.ethereum.request<string>({ method: 'eth_chainId' });
-  if (chainId !== BASE_CHAIN_ID_HEX) {
+  if (chainId !== chainParams.chainId) {
     try {
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_CHAIN_ID_HEX }] });
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainParams.chainId }] });
     } catch {
       await window.ethereum.request({
         method: 'wallet_addEthereumChain',
-        params: [{ chainId: BASE_CHAIN_ID_HEX, chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: [BASE_RPC_DEFAULT], blockExplorerUrls: ['https://basescan.org'] }],
+        params: [chainParams],
       });
     }
   }
@@ -91,7 +92,8 @@ export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, co
   }, [agentWalletAddress]);
 
   const walletAddress = agentWalletAddress ?? storedAddress;
-  const explorerUrl = useMemo(() => (walletAddress ? explorerAddressUrl(walletAddress) : ''), [walletAddress]);
+  const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
+  const explorerUrl = useMemo(() => (walletAddress ? explorerAddressUrl(walletAddress, publicBaseProfile) : ''), [publicBaseProfile, walletAddress]);
 
   async function handleCopy() {
     if (!walletAddress) return;
@@ -162,7 +164,7 @@ export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, co
           {depositStatus === 'confirmed' && depositTxHash ? (
             <div className="mt-3 rounded-2xl border border-success/30 bg-success/10 p-3 text-sm text-success">
               <div className="font-bold">{t('agentWalletDepositConfirmed')}</div>
-              <a className="mt-1 block break-all underline" href={explorerTxUrl(depositTxHash)} target="_blank" rel="noreferrer">{shorten(depositTxHash, 10)}</a>
+              <a className="mt-1 block break-all underline" href={explorerTxUrl(depositTxHash, publicBaseProfile)} target="_blank" rel="noreferrer">{shorten(depositTxHash, 10)}</a>
             </div>
           ) : null}
           {error ? <div className="mt-3 rounded-2xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger">{error}</div> : null}

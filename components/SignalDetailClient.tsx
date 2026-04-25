@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { explorerAddressUrl } from '@/lib/chains';
+import { useMemo, useState } from 'react';
+import { baseWalletChainParams, explorerAddressUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import type { ExecutionEvent, PurchaseEvent, Signal, UserProfile, X402PaymentRequest } from '@/lib/types';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
@@ -30,14 +30,15 @@ async function connectWallet(messages: { noProvider: string; noAccount: string }
   const accounts = await window.ethereum.request<string[]>({ method: 'eth_requestAccounts' });
   const account = accounts[0];
   if (!account) throw new Error(messages.noAccount);
+  const chainParams = baseWalletChainParams(getPublicBaseNetworkProfile());
   const chainId = await window.ethereum.request<string>({ method: 'eth_chainId' });
-  if (chainId !== '0x2105') {
+  if (chainId !== chainParams.chainId) {
     try {
-      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainParams.chainId }] });
     } catch {
       await window.ethereum.request({
         method: 'wallet_addEthereumChain',
-        params: [{ chainId: '0x2105', chainName: 'Base', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: ['https://mainnet.base.org'], blockExplorerUrls: ['https://basescan.org'] }],
+        params: [chainParams],
       });
     }
   }
@@ -66,6 +67,7 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
   const [error, setError] = useState('');
   const [derived, setDerived] = useState<unknown>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
 
   const unlocked = purchase?.paymentStatus === 'confirmed';
   const statusKey = statusLabelKey(status);
@@ -199,7 +201,7 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
             <div className="space-y-2 rounded-2xl border border-accent/30 bg-accent/10 p-4 text-xs text-accent">
               <div className="font-bold">{t('signalAgentWallet')}</div>
               <code className="block break-all">{x402Payment.agentWalletAddress}</code>
-              <a className="inline-block font-bold underline" target="_blank" rel="noreferrer" href={explorerAddressUrl(x402Payment.agentWalletAddress)}>
+              <a className="inline-block font-bold underline" target="_blank" rel="noreferrer" href={explorerAddressUrl(x402Payment.agentWalletAddress, publicBaseProfile)}>
                 {t('signalOpenAgentBasescan')} ↗
               </a>
               <div className="pt-2 font-bold">{t('signalX402Resource')}</div>

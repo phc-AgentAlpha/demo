@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { explorerAddressUrl } from '@/lib/chains';
+import { explorerAddressUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import { mockDashboard } from '@/lib/mock-data';
 import type { UserProfile } from '@/lib/types';
 import { AgentWalletControls } from './AgentWalletControls';
@@ -29,6 +29,7 @@ export function DashboardClient() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [agent, setAgent] = useState<AgentState | null>(null);
   const [loading, setLoading] = useState(true);
+  const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
 
   useEffect(() => {
     const raw = window.localStorage.getItem('userProfile') ?? window.localStorage.getItem('agentalpha_profile');
@@ -82,7 +83,7 @@ export function DashboardClient() {
           {agent ? (
             <a
               className="rounded-2xl border border-line px-4 py-2 text-right transition hover:border-accent/60 hover:bg-accent/10"
-              href={explorerAddressUrl(agent.walletAddress)}
+              href={explorerAddressUrl(agent.walletAddress, publicBaseProfile)}
               target="_blank"
               rel="noreferrer"
               aria-label={`${t('dashboardOpenAgentBasescan')}: ${agent.walletAddress}`}
