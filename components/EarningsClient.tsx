@@ -48,10 +48,10 @@ export function EarningsClient({ events }: { events: RevenueDistributionEvent[] 
           </button>
         ))}
       </section>
-      <section className="card bg-ink/90 text-center">
-        <div className="text-sm text-slate-400">{t('earningsTotal')}</div>
-        <div className="mt-2 text-5xl font-black text-accent">{summary.total.toFixed(2)} USDC</div>
-        <div className="mt-2 text-sm text-success">+{summary.deltaPercent}% {t('earningsDelta')}</div>
+      <section className="card bg-surface text-center">
+        <div className="stat-label">{t('earningsTotal')}</div>
+        <div className="mt-3 font-mono tabular text-display-md font-semibold text-cyan">{summary.total.toFixed(2)} USDC</div>
+        <div className="mt-2 text-small font-mono text-pos">+{summary.deltaPercent}% {t('earningsDelta')}</div>
       </section>
       <section className="grid gap-5 md:grid-cols-3">
         <Metric label={t('earningsTrading')} value={`${summary.tradingPnl.toFixed(2)} USDC`} border="border-accent" />
@@ -122,15 +122,20 @@ export function EarningsClient({ events }: { events: RevenueDistributionEvent[] 
 }
 
 function Metric({ label, value, border }: { label: string; value: string; border: string }) {
-  return <div className={`card border-l-4 ${border}`}><div className="text-sm text-slate-400">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>;
+  return (
+    <div className={`card border-l-4 ${border}`}>
+      <div className="text-micro uppercase tracking-[0.08em] text-fg-faint">{label}</div>
+      <div className="mt-2 font-mono tabular text-h1 font-semibold text-fg leading-tight">{value}</div>
+    </div>
+  );
 }
 
 function MiniLine({ label, color, values }: { label: string; color: string; values: number[] }) {
   return (
-    <div className="rounded-3xl border border-line bg-ink/60 p-4">
-      <div className="text-sm font-bold text-slate-300">{label}</div>
-      <div className="mt-4 flex h-28 items-end gap-2">
-        {values.map((value, index) => <div key={`${label}-${index}`} className={`flex-1 rounded-t-xl ${color}`} style={{ height: `${value * 100}%` }} />)}
+    <div className="rounded-xl border border-hairline bg-surface-2 p-4">
+      <div className="text-small font-medium text-fg-muted">{label}</div>
+      <div className="mt-4 flex h-28 items-end gap-1.5">
+        {values.map((value, index) => <div key={`${label}-${index}`} className={`flex-1 rounded-t-md ${color} opacity-80`} style={{ height: `${value * 100}%` }} />)}
       </div>
     </div>
   );

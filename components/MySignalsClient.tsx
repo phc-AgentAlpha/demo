@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { splitRevenue } from '@/lib/derived-revenue';
 import type { DerivedRelation, Signal, UserProfile } from '@/lib/types';
+import { signalToCardData } from '@/lib/signal-adapter';
 import { SignalCard } from './SignalCard';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
@@ -53,7 +54,7 @@ export function MySignalsClient({ profile, signals, relations }: { profile?: Use
             const treeOpen = Boolean(openTree[signal.id]);
             return (
               <article key={signal.id} className="space-y-4">
-                <SignalCard signal={signal} href={`/market/${signal.rootSignalId ?? signal.parentSignalId ?? signal.id}`} />
+                <SignalCard data={signalToCardData(signal)} href={`/market/${signal.rootSignalId ?? signal.parentSignalId ?? signal.id}`} />
                 <section className="card space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="rounded-2xl bg-ink/70 p-4"><div className="text-sm text-slate-400">{t('mySignalsSales')}</div><div className="mt-1 text-2xl font-black">{signal.totalSales}</div></div>

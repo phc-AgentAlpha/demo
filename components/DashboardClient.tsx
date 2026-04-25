@@ -293,6 +293,11 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 }
 
 function Metric({ label, value, tone = 'neutral' }: { label: string; value: string; tone?: 'neutral' | 'success' | 'accent' }) {
-  const color = tone === 'success' ? 'text-success' : tone === 'accent' ? 'text-accent' : 'text-white';
-  return <div className="card"><div className="text-sm text-slate-400">{label}</div><div className={`mt-2 text-3xl font-black ${color}`}>{value}</div></div>;
+  const color = tone === 'success' ? 'text-pos' : tone === 'accent' ? 'text-cyan' : 'text-fg';
+  return (
+    <div className="card">
+      <div className="stat-label">{label}</div>
+      <div className={`mt-2 font-mono tabular text-h1 font-semibold leading-tight ${color}`}>{value}</div>
+    </div>
+  );
 }
