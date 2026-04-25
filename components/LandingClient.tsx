@@ -33,8 +33,14 @@ export function LandingClient() {
       </section>
 
       <section className="grid gap-5 md:grid-cols-2">
-        <div className="card"><div className="text-sm text-slate-400">{t('landingIndexed')}</div><div className="mt-2 text-5xl font-black text-accent">{mockStats.totalIndexed.toLocaleString()}</div></div>
-        <div className="card"><div className="text-sm text-slate-400">{t('landingTodaySignals')}</div><div className="mt-2 text-5xl font-black text-success">{mockStats.todaySignals.toLocaleString()}</div></div>
+        <div className="card">
+          <div className="stat-label">{t('landingIndexed')}</div>
+          <div className="mt-2 font-mono tabular text-h1 font-semibold text-cyan leading-tight">{mockStats.totalIndexed.toLocaleString()}</div>
+        </div>
+        <div className="card">
+          <div className="stat-label">{t('landingTodaySignals')}</div>
+          <div className="mt-2 font-mono tabular text-h1 font-semibold text-pos leading-tight">{mockStats.todaySignals.toLocaleString()}</div>
+        </div>
       </section>
 
       <section className="card">

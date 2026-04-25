@@ -1,0 +1,25 @@
+{
+  "profiles": [
+    {
+      "walletAddress": "wallet_not_connected",
+      "riskPreference": "medium",
+      "assetPreference": "defi",
+      "timeHorizon": "short",
+      "tradingStyle": "neutral",
+      "classificationSource": "fallback",
+      "classificationReason": "The selected preferences balance risk, asset scope, and holding period, so the market can show both verified and discovery signals.",
+      "recommendedSignalFilters": {
+        "tradingStyle": "neutral",
+        "qualityTier": "all",
+        "maxPriceUsdc": 1
+      },
+      "consentToIndexing": true,
+      "consentTimestamp": 1777098635578,
+      "createdAt": 1777098635578
+    }
+  ],
+  "purchases": [],
+  "executions": [],
+  "derivedRelations": [],
+  "revenueEvents": []
+}
