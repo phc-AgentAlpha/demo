@@ -9,7 +9,7 @@ export const mockStats = {
 
 export const mockDashboard = {
   agentId: '001',
-  walletAddress: '0xA1eXaA0000000000000000000000000000000001',
+  walletAddress: '0xa1e0aa0000000000000000000000000000000001',
   usdcBalance: 24.8,
   tradingPnl: 12.4,
   purchaseCount: 3,

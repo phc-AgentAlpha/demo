@@ -32,6 +32,9 @@ describe('Flock-first onboarding classifier', () => {
   it('requires consent before profile persistence', () => {
     const classification = fallbackClassifyStyle({ riskPreference: 'medium', assetPreference: 'all', timeHorizon: 'mid' });
     expect(() => buildUserProfile({ riskPreference: 'medium', assetPreference: 'all', timeHorizon: 'mid', consentToIndexing: false, classification })).toThrow(/Consent/);
-    expect(buildUserProfile({ riskPreference: 'medium', assetPreference: 'all', timeHorizon: 'mid', consentToIndexing: true, classification }).classificationSource).toBe('fallback');
+    const profile = buildUserProfile({ riskPreference: 'medium', assetPreference: 'all', timeHorizon: 'mid', consentToIndexing: true, classification });
+    expect(profile.classificationSource).toBe('fallback');
+    expect(profile.walletAddress).toBe('wallet_not_connected');
+    expect(profile.agentWalletAddress).toBeUndefined();
   });
 });

@@ -10,6 +10,9 @@ export type ChainStatus = 'awaiting_wallet' | 'pending' | 'confirmed' | 'failed'
 
 export interface UserProfile {
   walletAddress: string;
+  paymentWalletAddress?: string;
+  agentId?: string;
+  agentWalletAddress?: string;
   tradingStyle: TradingStyle;
   riskPreference: RiskPreference;
   assetPreference: AssetPreference;

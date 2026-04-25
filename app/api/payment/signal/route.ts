@@ -11,8 +11,12 @@ export async function POST(request: Request) {
     const signal = getSignalById(body.signalId);
     if (!signal) return jsonError('Signal not found', 404);
     const profile = latestProfile();
-    if (profile?.consentToIndexing && profile.walletAddress === 'wallet_not_connected') {
-      saveProfile({ ...profile, walletAddress: body.buyerAddress });
+    if (profile?.consentToIndexing) {
+      saveProfile({
+        ...profile,
+        walletAddress: profile.walletAddress === 'wallet_not_connected' ? body.buyerAddress : profile.walletAddress,
+        paymentWalletAddress: body.buyerAddress,
+      });
     }
     const intent = createPaymentIntent({ signalId: signal.id, buyerAddress: body.buyerAddress, priceUsdc: signal.priceUsdc });
     const { transferRequest, warning, ...purchase } = intent;

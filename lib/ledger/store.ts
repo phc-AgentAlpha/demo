@@ -46,14 +46,31 @@ export function resetLedger() {
 
 export function saveProfile(profile: UserProfile) {
   const ledger = readLedger();
-  ledger.profiles = [profile, ...ledger.profiles.filter((existing) => existing.walletAddress.toLowerCase() !== profile.walletAddress.toLowerCase())];
+  ledger.profiles = [profile, ...ledger.profiles.filter((existing) => !sameProfile(existing, profile))];
   writeLedger(ledger);
   return profile;
 }
 
+function profileWallets(profile: UserProfile) {
+  return [profile.walletAddress, profile.paymentWalletAddress, profile.agentWalletAddress].filter(Boolean).map((value) => value!.toLowerCase());
+}
+
+function sameProfile(a: UserProfile, b: UserProfile) {
+  const aWallets = profileWallets(a);
+  const bWallets = profileWallets(b);
+  return (
+    aWallets.some((wallet) => bWallets.includes(wallet)) ||
+    Boolean(a.agentId && a.agentId === b.agentId) ||
+    (a.createdAt === b.createdAt && a.consentTimestamp === b.consentTimestamp)
+  );
+}
+
 export function latestProfile(walletAddress?: string) {
   const profiles = readLedger().profiles;
-  if (walletAddress) return profiles.find((profile) => profile.walletAddress.toLowerCase() === walletAddress.toLowerCase());
+  if (walletAddress) {
+    const normalized = walletAddress.toLowerCase();
+    return profiles.find((profile) => profileWallets(profile).includes(normalized));
+  }
   return profiles[0];
 }
 

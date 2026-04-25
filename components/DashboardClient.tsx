@@ -34,9 +34,9 @@ export function DashboardClient() {
       setLoading(false);
       return;
     }
-    const parsed = JSON.parse(raw) as UserProfile & Partial<AgentState>;
+    const parsed = JSON.parse(raw) as UserProfile;
     setProfile(parsed);
-    const existingAgent = parsed.agentId && parsed.walletAddress ? { agentId: parsed.agentId, walletAddress: parsed.walletAddress, status: 'active' as const, usdcBalance: mockDashboard.usdcBalance } : null;
+    const existingAgent = parsed.agentId && parsed.agentWalletAddress ? { agentId: parsed.agentId, walletAddress: parsed.agentWalletAddress, status: 'active' as const, usdcBalance: mockDashboard.usdcBalance } : null;
     if (existingAgent) {
       setAgent(existingAgent);
       setLoading(false);
@@ -49,7 +49,7 @@ export function DashboardClient() {
         const balancePayload = (await balanceResponse.json()) as { balance?: { usdcBalance: number } };
         const nextAgent = { ...payload.agent, usdcBalance: balancePayload.balance?.usdcBalance ?? payload.agent.usdcBalance };
         setAgent(nextAgent);
-        const next = { ...parsed, agentId: payload.agent.agentId, walletAddress: payload.agent.walletAddress };
+        const next = { ...parsed, agentId: payload.agent.agentId, agentWalletAddress: payload.agent.walletAddress };
         window.localStorage.setItem('userProfile', JSON.stringify(next));
         window.localStorage.setItem('agentalpha_profile', JSON.stringify(next));
       })
@@ -77,7 +77,7 @@ export function DashboardClient() {
             <h1 className="mt-4 text-4xl font-black">{t('dashboardTitle')}</h1>
             <p className="mt-2 max-w-3xl text-slate-300">{t('dashboardSubtitle')}</p>
           </div>
-          {agent ? <div className="rounded-full border border-line px-4 py-2 font-mono text-sm text-accent">{shorten(agent.walletAddress)}</div> : null}
+          {agent ? <div className="rounded-2xl border border-line px-4 py-2 text-right"><div className="text-xs text-slate-500">{t('dashboardAgentWallet')}</div><div className="font-mono text-sm text-accent">{shorten(agent.walletAddress)}</div></div> : null}
         </div>
       </section>
 

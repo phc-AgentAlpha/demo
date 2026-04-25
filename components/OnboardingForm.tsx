@@ -30,6 +30,13 @@ const horizonOptions = [
   ['long', 'prefLong'],
 ] as const;
 
+interface AgentIssueResponse {
+  agent: {
+    agentId: string;
+    walletAddress: string;
+  };
+}
+
 export function OnboardingForm() {
   const { t } = useI18n();
   const router = useRouter();
@@ -37,7 +44,6 @@ export function OnboardingForm() {
   const [riskPreference, setRiskPreference] = useState<RiskPreference>('medium');
   const [assetPreference, setAssetPreference] = useState<AssetPreference>('all');
   const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>('mid');
-  const [walletAddress, setWalletAddress] = useState('');
   const [consent, setConsent] = useState(false);
   const [classification, setClassification] = useState<ClassifyStyleResponse | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -48,7 +54,7 @@ export function OnboardingForm() {
     setStatus('classifying');
     setError('');
     try {
-      const result = await postJson<ClassifyStyleResponse>('/api/classify-style', { walletAddress, riskPreference, assetPreference, timeHorizon });
+      const result = await postJson<ClassifyStyleResponse>('/api/classify-style', { riskPreference, assetPreference, timeHorizon });
       setClassification(result);
       setStep(4);
       setStatus('idle');
@@ -63,10 +69,16 @@ export function OnboardingForm() {
     setStatus('saving');
     setError('');
     try {
-      const result = await postJson<{ profile: UserProfile }>('/api/profile', { walletAddress, riskPreference, assetPreference, timeHorizon, classification, consentToIndexing: consent });
-      window.localStorage.setItem('agentalpha_profile', JSON.stringify(result.profile));
-      window.localStorage.setItem('userProfile', JSON.stringify(result.profile));
-      setProfile(result.profile);
+      const result = await postJson<{ profile: UserProfile }>('/api/profile', { riskPreference, assetPreference, timeHorizon, classification, consentToIndexing: consent });
+      const issued = await postJson<AgentIssueResponse>('/api/agent/create', { seed: classification.tradingStyle });
+      const nextProfile = {
+        ...result.profile,
+        agentId: issued.agent.agentId,
+        agentWalletAddress: issued.agent.walletAddress,
+      };
+      window.localStorage.setItem('agentalpha_profile', JSON.stringify(nextProfile));
+      window.localStorage.setItem('userProfile', JSON.stringify(nextProfile));
+      setProfile(nextProfile);
       setStatus('saved');
       setTimeout(() => router.push('/dashboard'), 350);
     } catch (err) {
@@ -122,9 +134,7 @@ export function OnboardingForm() {
           <div className="grid gap-3 md:grid-cols-3">
             {horizonOptions.map(([value, key]) => <button key={value} className={timeHorizon === value ? 'button' : 'button-secondary'} onClick={() => setTimeHorizon(value)}>{t(key)}</button>)}
           </div>
-          <label className="block text-sm text-slate-300">{t('onboardingWalletLabel')}
-            <input className="input mt-1" value={walletAddress} onChange={(event) => setWalletAddress(event.target.value)} placeholder="0x..." />
-          </label>
+          <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">{t('onboardingAgentWalletAuto')}</div>
           <div className="flex gap-3"><button className="button-secondary" onClick={() => setStep(2)}>{t('onboardingBack')}</button><button className="button" disabled={status === 'classifying'} onClick={classify}>{status === 'classifying' ? t('onboardingCallingFlock') : t('onboardingClassify')}</button></div>
         </section>
       ) : null}
@@ -135,6 +145,7 @@ export function OnboardingForm() {
           <h2 className="text-2xl font-black">{t('onboardingResult')}</h2>
           <p className="text-slate-300">{classification.classificationReason}</p>
           <div className="rounded-2xl bg-ink/70 p-4 text-sm text-slate-300">{t('onboardingRecommendedFilter')}: {classification.recommendedSignalFilters.qualityTier} · {t('onboardingMax')} {classification.recommendedSignalFilters.maxPriceUsdc.toFixed(2)} USDC</div>
+          <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">{t('onboardingAgentWalletAuto')}</div>
           <label className="flex items-start gap-3 rounded-2xl border border-line p-4 text-sm text-slate-300">
             <input type="checkbox" className="mt-1" checked={consent} onChange={(event) => setConsent(event.target.checked)} />
             {t('onboardingConsent')}
