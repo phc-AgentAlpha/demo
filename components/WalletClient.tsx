@@ -1,6 +1,7 @@
 'use client';
 
 import type { DemoLedger } from '@/lib/ledger/store';
+import { AgentWalletControls } from './AgentWalletControls';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
 import { statusLabelKey } from './i18n-format';
@@ -14,6 +15,7 @@ export function WalletClient({ ledger }: { ledger: DemoLedger }) {
         <h1 className="mt-4 text-4xl font-black">{t('walletTitle')}</h1>
         <p className="mt-2 text-slate-300">{t('walletSubtitle')}</p>
       </section>
+      <AgentWalletControls />
       <section className="card">
         <h2 className="text-2xl font-black">{t('walletPurchases')}</h2>
         <LedgerTable rows={ledger.purchases.map((row) => ({ id: row.id, label: row.signalId, hash: row.paymentTxHash, status: row.paymentStatus, explorer: row.explorerUrl }))} />

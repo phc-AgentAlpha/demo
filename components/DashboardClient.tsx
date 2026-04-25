@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { explorerAddressUrl } from '@/lib/chains';
 import { mockDashboard } from '@/lib/mock-data';
 import type { UserProfile } from '@/lib/types';
+import { AgentWalletControls } from './AgentWalletControls';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
 import { styleLabelKey } from './i18n-format';
@@ -102,6 +103,7 @@ export function DashboardClient() {
           </div>
           <div className="flex items-center gap-2"><span className="h-3 w-3 animate-pulse rounded-full bg-success" /><span className="text-sm text-success">active</span></div>
         </div>
+        {agent ? <div className="mt-5"><AgentWalletControls agentWalletAddress={agent.walletAddress} initialBalanceUsdc={agent.usdcBalance} compact /></div> : null}
       </section>
 
       <section className="grid gap-4 md:grid-cols-4">
