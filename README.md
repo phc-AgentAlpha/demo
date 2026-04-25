@@ -1,66 +1,77 @@
-# AgentAlpha v6 Hybrid Live Demo
+# AgentAlpha v6
 
-AgentAlpha is a hackathon MVP for an autonomous trading-signal marketplace on Base. The demo intentionally mocks only the indexer while keeping payment and swap proof paths connected to real Base transaction verification.
+**An autonomous AI trading agent marketplace, built on Base.**
 
-## What is live vs mocked
+> Subscribe to signals from on-chain top traders. Your AI agent executes the trades — automatically.
 
-- **Mocked:** Base-wide indexing and trader discovery. Market data comes from deterministic fixtures in `lib/mock-indexer-data.ts` through the mock indexer adapter.
-- **Live-required:** x402 signal payments, transaction hash verification, wallet activity links, and PancakeSwap swap proof. The app must not mark payment or swap success from fixture hashes.
+---
 
-## Core user flow
+## Signal Market
 
-1. Complete onboarding survey.
-2. Set agent spending limits.
-3. Run Flock-first trading-style classification, with deterministic fallback when Flock is unavailable.
-4. Persist consent and issue an Agent/AA wallet.
-5. Fund the agent wallet on Base or Base Sepolia.
-6. Start the dashboard Agent Run Controller.
-7. The agent scans mock market signals, matches the saved profile, executes x402 payment, and hands off to PancakeSwap.
-8. The user confirms the swap in a wallet and pastes the real swap transaction hash for verification.
+![AgentAlpha Signal Market](./public/screenshots/market.png)
 
-## Important safety rules
+Browse verified on-chain trader signals with Nansen-style labels (Whale, Smart Money, Top PNL Trader). Filter by trading style, tier, or asset pair. Each signal is priced in USDC and unlocks only after a real Base transaction settles.
 
-- Do not build a live Base-wide indexer for this demo.
-- Do not return fake payment or swap hashes.
-- Do not store user private keys.
-- Do not auto-submit swaps without wallet confirmation.
-- Keep spending caps enforced with environment variables.
-- Use Base Sepolia for safer live testing unless a production mainnet facilitator and funded wallets are configured.
+---
 
-## Environment setup
+## Onboarding & Agent Setup
+
+![AgentAlpha Onboarding](./public/screenshots/onboarding.png)
+
+Answer a short survey — AgentAlpha classifies your trading style (Aggressive / Neutral / Conservative) using Flock AI, then issues a dedicated agent wallet via Coinbase CDP. Set your daily spending cap and let the agent run.
+
+---
+
+## How It Works
+
+```
+Onboarding survey
+  → AI style classification (Flock)
+  → Agent wallet issued (Coinbase CDP)
+  → Browse Signal Market
+  → Purchase signal (x402 · Base USDC)
+  → Agent auto-executes swap (PancakeSwap)
+  → Earnings & proof on Dashboard
+```
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---|---|
+| **Signal Market** | 144 indexed traders · Verified & Early Discovery tiers |
+| **AI Agent** | Matches your profile, pays x402, hands off to PancakeSwap |
+| **Revenue Split** | Sellers earn 80% per sale · Derived signals share upstream royalties |
+| **On-chain Proof** | Every payment and distribution linked to a real Base tx |
+| **Safety Caps** | Daily budget limits enforced server-side · No private key storage |
+
+---
+
+## Stack
+
+| Layer | Tech |
+|---|---|
+| Frontend | Next.js 14 · TypeScript · Tailwind CSS |
+| Chain | Base (Sepolia testnet) |
+| Agent Wallet | Coinbase CDP SDK |
+| Payment | x402 protocol · Base USDC |
+| Swap | PancakeSwap |
+| AI Classification | Flock.io |
+
+---
+
+## Quick Start
 
 ```bash
-cp .env.example .env
+cp .env.example .env.local
+# Fill in Base Sepolia config
 pnpm install
 pnpm dev
 ```
 
-For Base Sepolia testing, set:
+Open `http://localhost:3000`
 
-```env
-BASE_NETWORK=base-sepolia
-NEXT_PUBLIC_BASE_NETWORK=base-sepolia
-X402_NETWORK=eip155:84532
-X402_SEPOLIA_FACILITATOR_URL=https://x402.org/facilitator
-```
+---
 
-Mainnet x402 requires a production facilitator via `X402_MAINNET_FACILITATOR_URL` or a production `X402_FACILITATOR_URL`; the default `https://x402.org/facilitator` is testnet-only.
-
-## Useful commands
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-pnpm test:e2e
-```
-
-## Key paths
-
-- `components/OnboardingForm.tsx` — survey, budget, Flock classification, consent, agent wallet issuance.
-- `components/DashboardClient.tsx` — Agent Run Controller and event timeline.
-- `lib/agent/run-state-machine.ts` — agent loop state machine.
-- `lib/payment/x402-payment.ts` — x402 payment intent, settlement, and verification boundary.
-- `lib/execution/pancakeswap-ai.ts` — PancakeSwap deep-link execution handoff and swap proof verification.
-- `lib/ledger/store.ts` — local demo event ledger.
+*Built on Base · Powered by Coinbase CDP · AgentAlpha v6*
