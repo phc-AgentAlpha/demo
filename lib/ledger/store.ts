@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { AgentIssuance, DerivedRelation, ExecutionEvent, PurchaseEvent, RevenueDistributionEvent, UserProfile } from '../types';
+import { migrateUserProfile } from '../profile-migration';
+import type { AgentIssuance, AgentRunState, DerivedRelation, ExecutionEvent, PurchaseEvent, RevenueDistributionEvent, UserProfile } from '../types';
 
 export interface DemoLedger {
   profiles: UserProfile[];
@@ -9,6 +10,7 @@ export interface DemoLedger {
   derivedRelations: DerivedRelation[];
   revenueEvents: RevenueDistributionEvent[];
   agentIssuances: AgentIssuance[];
+  agentRuns: AgentRunState[];
 }
 
 const EMPTY_LEDGER: DemoLedger = {
@@ -18,6 +20,7 @@ const EMPTY_LEDGER: DemoLedger = {
   derivedRelations: [],
   revenueEvents: [],
   agentIssuances: [],
+  agentRuns: [],
 };
 
 export function ledgerPath() {
@@ -71,9 +74,10 @@ export function latestProfile(walletAddress?: string) {
   const profiles = readLedger().profiles;
   if (walletAddress) {
     const normalized = walletAddress.toLowerCase();
-    return profiles.find((profile) => profileWallets(profile).includes(normalized));
+    const profile = profiles.find((profile) => profileWallets(profile).includes(normalized));
+    return profile ? migrateUserProfile(profile) : undefined;
   }
-  return profiles[0];
+  return profiles[0] ? migrateUserProfile(profiles[0]) : undefined;
 }
 
 export function saveAgentIssuance(issuance: AgentIssuance) {
@@ -88,6 +92,25 @@ export function getAgentIssuance(input: { agentId?: string; walletAddress?: stri
   return readLedger().agentIssuances.find((issuance) => {
     if (input.agentId && issuance.agentId === input.agentId) return normalizedWallet ? issuance.walletAddress.toLowerCase() === normalizedWallet : true;
     return Boolean(normalizedWallet && issuance.walletAddress.toLowerCase() === normalizedWallet);
+  });
+}
+
+export function saveAgentRun(run: AgentRunState) {
+  const ledger = readLedger();
+  const normalizedWallet = run.agentWalletAddress.toLowerCase();
+  ledger.agentRuns = [
+    run,
+    ...ledger.agentRuns.filter((existing) => existing.agentId !== run.agentId && existing.agentWalletAddress.toLowerCase() !== normalizedWallet),
+  ];
+  writeLedger(ledger);
+  return run;
+}
+
+export function latestAgentRun(input: { agentId?: string; agentWalletAddress?: string }) {
+  const normalizedWallet = input.agentWalletAddress?.toLowerCase();
+  return readLedger().agentRuns.find((run) => {
+    if (input.agentId && run.agentId === input.agentId) return normalizedWallet ? run.agentWalletAddress.toLowerCase() === normalizedWallet : true;
+    return Boolean(normalizedWallet && run.agentWalletAddress.toLowerCase() === normalizedWallet);
   });
 }
 

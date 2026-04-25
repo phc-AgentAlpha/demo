@@ -9,6 +9,7 @@ import { isDerivedMatch } from '@/lib/derived-revenue';
 import { POST as confirmExecutionRoute } from '@/app/api/execution/confirm/route';
 import { POST as paymentSignalRoute } from '@/app/api/payment/signal/route';
 import { POST as profileRoute } from '@/app/api/profile/route';
+import { POST as startRunRoute } from '@/app/api/agent/run/start/route';
 
 const agentWallet = '0x2222222222222222222222222222222222222222';
 const otherWallet = '0x4444444444444444444444444444444444444444';
@@ -109,6 +110,21 @@ describe('market → agent x402 purchase → unlock → execute → derived smok
     expect(payload.x402Settlement?.payer).toBe(agentWallet);
     expect(payload.transferRequest).toBeUndefined();
     expect(latestProfile(agentWallet)?.agentWalletAddress).toBe(agentWallet);
+  });
+
+
+  it('starts the dashboard agent loop and persists run events through the API route', async () => {
+    consentingProfile();
+    const response = await startRunRoute(new Request('http://test.local/api/agent/run/start', {
+      method: 'POST',
+      body: JSON.stringify({ agentWalletAddress: agentWallet }),
+    }));
+    const payload = (await response.json()) as { run: { status: string; currentSignalId?: string; events: Array<{ type: string }> } };
+
+    expect(response.status).toBe(200);
+    expect(payload.run.status).toBe('running');
+    expect(payload.run.currentSignalId).toBe('sig_discovered_001');
+    expect(payload.run.events.map((event) => event.type)).toEqual(expect.arrayContaining(['payment_confirmed', 'swap_ready']));
   });
 
   it('rejects arbitrary client-supplied payment wallets that were not issued by onboarding', async () => {

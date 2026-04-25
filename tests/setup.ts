@@ -7,13 +7,17 @@ process.env.VITEST = 'true';
 process.env.INDEXER_MODE = 'mock';
 process.env.DEMO_MAX_SIGNAL_PRICE_USDC = '1';
 process.env.DEMO_MAX_SWAP_USDC = '1';
+process.env.DEMO_MAX_DAILY_AGENT_BUDGET_USDC = '5';
 process.env.PANCAKESWAP_SLIPPAGE_BPS = '100';
 process.env.PLATFORM_WALLET_ADDRESS = '0x1111111111111111111111111111111111111111';
 process.env.NEXT_PUBLIC_ENABLE_REAL_PAYMENTS = 'true';
 process.env.X402_FACILITATOR_URL = 'https://x402.org/facilitator';
+process.env.X402_SEPOLIA_FACILITATOR_URL = 'https://x402.org/facilitator';
+process.env.X402_MAINNET_FACILITATOR_URL = 'https://mainnet.facilitator.test';
 process.env.NEXT_PUBLIC_ENABLE_REAL_SWAPS = 'true';
 process.env.AGENTALPHA_MOCK_TX_VERIFIER = 'true';
 process.env.AGENTALPHA_MOCK_X402_SETTLEMENT = 'true';
+process.env.AGENT_SCAN_INTERVAL_MS = '300000';
 process.env.BASE_NETWORK = 'base-mainnet';
 process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-mainnet';
 delete process.env.BASE_CHAIN_ID;
@@ -23,6 +27,7 @@ delete process.env.NEXT_PUBLIC_BASE_RPC_URL;
 delete process.env.BASE_USDC_ADDRESS;
 delete process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS;
 delete process.env.X402_NETWORK;
+delete process.env.X402_PAYMENT_TOKEN;
 
 beforeEach(() => {
   process.env.BASE_NETWORK = 'base-mainnet';
@@ -34,6 +39,7 @@ beforeEach(() => {
   delete process.env.BASE_USDC_ADDRESS;
   delete process.env.NEXT_PUBLIC_BASE_USDC_ADDRESS;
   delete process.env.X402_NETWORK;
+  delete process.env.X402_PAYMENT_TOKEN;
   const file = path.join(os.tmpdir(), `agentalpha-ledger-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
   process.env.AGENTALPHA_LEDGER_PATH = file;
   fs.mkdirSync(path.dirname(file), { recursive: true });

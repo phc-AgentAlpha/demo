@@ -10,6 +10,14 @@ export type TimeHorizon = 'short' | 'mid' | 'long';
 export type ClassificationSource = 'flock' | 'fallback';
 export type ChainStatus = 'awaiting_wallet' | 'awaiting_agent' | 'pending' | 'confirmed' | 'failed';
 export type AgentWalletProvider = 'deterministic-dev' | 'cdp-smart-account';
+export type AgentRunStatus = 'idle' | 'running' | 'stopping' | 'stopped' | 'blocked' | 'failed';
+export type AgentRunEventSeverity = 'info' | 'success' | 'warning' | 'error';
+
+export interface AgentBudget {
+  maxSignalPriceUsdc: number;
+  dailyMaxUsdc: number;
+  maxSwapUsdc: number;
+}
 
 export interface UserProfile {
   walletAddress: string;
@@ -24,6 +32,7 @@ export interface UserProfile {
   classificationSource: ClassificationSource;
   classificationReason: string;
   recommendedSignalFilters: RecommendedSignalFilters;
+  agentBudget: AgentBudget;
   consentToIndexing: boolean;
   consentTimestamp: number;
   createdAt: number;
@@ -40,6 +49,7 @@ export interface ClassifyStyleRequest {
   riskPreference: RiskPreference;
   assetPreference: AssetPreference;
   timeHorizon: TimeHorizon;
+  agentBudget?: AgentBudget;
 }
 
 export interface ClassifyStyleResponse {
@@ -176,6 +186,40 @@ export interface AgentIssuance {
   walletProvider: AgentWalletProvider;
   seed: string;
   issuedAt: number;
+}
+
+export interface AgentRunEvent {
+  id: string;
+  agentId: string;
+  timestamp: number;
+  type: 'run_started' | 'scan_started' | 'signal_matched' | 'signal_skipped' | 'budget_blocked' | 'payment_started' | 'payment_confirmed' | 'payment_failed' | 'swap_ready' | 'wait_scheduled' | 'stop_requested' | 'run_stopped' | 'run_info';
+  status: AgentRunStatus;
+  severity: AgentRunEventSeverity;
+  message: string;
+  signalId?: string;
+  purchaseId?: string;
+  executionId?: string;
+  txHash?: string;
+  explorerUrl?: string;
+  href?: string;
+  metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface AgentRunState {
+  agentId: string;
+  agentWalletAddress: string;
+  status: AgentRunStatus;
+  startedAt?: number;
+  stoppedAt?: number;
+  updatedAt: number;
+  nextScanAt?: number;
+  scanIntervalMs: number;
+  cycleCount: number;
+  currentSignalId?: string;
+  currentPurchaseId?: string;
+  currentExecutionId?: string;
+  lastError?: string;
+  events: AgentRunEvent[];
 }
 
 export interface ExecutionEvent {

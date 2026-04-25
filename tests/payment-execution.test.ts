@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { getRuntimeConfig } from '@/lib/env';
 import { buildX402PaymentRequirements, createAgentX402PaymentIntent, executeAgentX402Payment } from '@/lib/payment/x402-payment';
 import { preparePancakeExecution } from '@/lib/execution/pancakeswap-ai';
 import { getSignalById } from '@/lib/indexer/mock-indexer';
@@ -21,6 +22,7 @@ function cdpProfile(): UserProfile {
     classificationSource: 'fallback',
     classificationReason: 'test',
     recommendedSignalFilters: { tradingStyle: 'aggressive', qualityTier: 'discovered', maxPriceUsdc: 1 },
+    agentBudget: { maxSignalPriceUsdc: 1, dailyMaxUsdc: 5, maxSwapUsdc: 1 },
     consentToIndexing: true,
     consentTimestamp: Date.now(),
     createdAt: Date.now(),
@@ -57,6 +59,35 @@ describe('live payment/execution adapter contracts', () => {
     } finally {
       process.env.BASE_NETWORK = previousBaseNetwork;
       process.env.NEXT_PUBLIC_BASE_NETWORK = previousPublicBaseNetwork;
+    }
+  });
+
+
+  it('uses the testnet x402.org facilitator only for Base Sepolia', () => {
+    const previousBaseNetwork = process.env.BASE_NETWORK;
+    const previousPublicBaseNetwork = process.env.NEXT_PUBLIC_BASE_NETWORK;
+    process.env.BASE_NETWORK = 'base-sepolia';
+    process.env.NEXT_PUBLIC_BASE_NETWORK = 'base-sepolia';
+    try {
+      expect(getRuntimeConfig().x402FacilitatorUrl).toBe('https://x402.org/facilitator');
+    } finally {
+      process.env.BASE_NETWORK = previousBaseNetwork;
+      process.env.NEXT_PUBLIC_BASE_NETWORK = previousPublicBaseNetwork;
+    }
+  });
+
+  it('rejects the default testnet facilitator on Base mainnet unless a production facilitator is configured', () => {
+    const previousMainnetFacilitator = process.env.X402_MAINNET_FACILITATOR_URL;
+    const previousGenericFacilitator = process.env.X402_FACILITATOR_URL;
+    delete process.env.X402_MAINNET_FACILITATOR_URL;
+    process.env.X402_FACILITATOR_URL = 'https://x402.org/facilitator';
+    try {
+      expect(() => getRuntimeConfig()).toThrow(/testnet-only/);
+    } finally {
+      if (previousMainnetFacilitator === undefined) delete process.env.X402_MAINNET_FACILITATOR_URL;
+      else process.env.X402_MAINNET_FACILITATOR_URL = previousMainnetFacilitator;
+      if (previousGenericFacilitator === undefined) delete process.env.X402_FACILITATOR_URL;
+      else process.env.X402_FACILITATOR_URL = previousGenericFacilitator;
     }
   });
 

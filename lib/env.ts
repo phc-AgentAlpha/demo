@@ -1,4 +1,4 @@
-import { getBaseNetworkProfile, tokenAddress } from './chains';
+import { getBaseNetworkProfile, tokenAddress, type BaseNetworkProfile } from './chains';
 
 export function numberEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -36,6 +36,37 @@ function optionalX402NetworkEnv(name: string, fallback: 'eip155:8453' | 'eip155:
   if (!value) return fallback;
   if (value !== 'eip155:8453' && value !== 'eip155:84532') throw new Error(`${name} must be eip155:8453 or eip155:84532`);
   return value;
+}
+
+
+const DEFAULT_X402_TESTNET_FACILITATOR_URL = 'https://x402.org/facilitator';
+
+function cleanUrl(value: string) {
+  return value.replace(/\/+$/, '');
+}
+
+function optionalUrlEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? cleanUrl(value) : undefined;
+}
+
+function resolveX402FacilitatorUrl(profile: BaseNetworkProfile) {
+  const generic = optionalUrlEnv('X402_FACILITATOR_URL');
+  const sepolia = optionalUrlEnv('X402_SEPOLIA_FACILITATOR_URL');
+  const mainnet = optionalUrlEnv('X402_MAINNET_FACILITATOR_URL');
+
+  if (profile.key === 'base-sepolia') {
+    return sepolia ?? generic ?? DEFAULT_X402_TESTNET_FACILITATOR_URL;
+  }
+
+  const selected = mainnet ?? generic;
+  if (!selected) {
+    throw new Error('Base mainnet x402 requires X402_MAINNET_FACILITATOR_URL or a production X402_FACILITATOR_URL. The default x402.org facilitator is testnet-only.');
+  }
+  if (selected === DEFAULT_X402_TESTNET_FACILITATOR_URL) {
+    throw new Error('https://x402.org/facilitator is testnet-only and should only be used with Base Sepolia. Set X402_MAINNET_FACILITATOR_URL for Base mainnet.');
+  }
+  return selected;
 }
 
 export function getDemoCaps() {
@@ -98,7 +129,7 @@ export function getRuntimeConfig() {
     usdcAddress,
     realPaymentsEnabled: booleanEnv('NEXT_PUBLIC_ENABLE_REAL_PAYMENTS', true),
     realSwapsEnabled: booleanEnv('NEXT_PUBLIC_ENABLE_REAL_SWAPS', true),
-    x402FacilitatorUrl: process.env.X402_FACILITATOR_URL ?? '',
+    x402FacilitatorUrl: resolveX402FacilitatorUrl(baseNetworkProfile),
     x402Network,
     x402PaymentToken: x402PaymentTokenEnv(usdcAddress),
     x402ReceiverAddress: optionalAddressEnv('X402_RECEIVER_ADDRESS'),

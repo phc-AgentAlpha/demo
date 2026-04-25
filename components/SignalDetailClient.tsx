@@ -67,6 +67,7 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
   const [error, setError] = useState('');
   const [derived, setDerived] = useState<unknown>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [autoExecutionPrompt, setAutoExecutionPrompt] = useState(false);
   const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
 
   const unlocked = purchase?.paymentStatus === 'confirmed';
@@ -87,6 +88,8 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
       setStatus(intent.unlocked ? 'confirmed' : 'confirming');
       if (intent.unlocked) {
         void postJson('/api/tracking/post-purchase', { purchaseId: intent.purchase.id }).catch(() => undefined);
+        setAutoExecutionPrompt(true);
+        void autoPrepareExecution(intent.purchase);
       }
     } catch (err) {
       setStatus('failed');
@@ -94,17 +97,49 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
     }
   }
 
+  async function prepareExecutionForWallet(account: string, targetPurchase: PurchaseEvent, auto = false) {
+    setError('');
+    try {
+      setStatus('preparing_execution');
+      setWalletAddress(account);
+      const prepared = await postJson<{ execution: ExecutionEvent }>('/api/execution/prepare', { purchaseId: targetPurchase.id, signalId: signal.id, walletAddress: account });
+      setExecution(prepared.execution);
+      setAutoExecutionPrompt(false);
+      setStatus('execution_ready');
+      if (prepared.execution.deeplinkUrl) window.open(prepared.execution.deeplinkUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      if (auto) {
+        setAutoExecutionPrompt(true);
+        setStatus('confirmed');
+        return;
+      }
+      setStatus('failed');
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  async function autoPrepareExecution(targetPurchase: PurchaseEvent) {
+    if (!window.ethereum) {
+      setStatus('confirmed');
+      setAutoExecutionPrompt(true);
+      return;
+    }
+    const accounts = await window.ethereum.request<string[]>({ method: 'eth_accounts' }).catch(() => []);
+    const account = accounts[0];
+    if (!account) {
+      setStatus('confirmed');
+      setAutoExecutionPrompt(true);
+      return;
+    }
+    await prepareExecutionForWallet(account, targetPurchase, true);
+  }
+
   async function prepareExecution() {
     if (!purchase) return;
     setError('');
     try {
-      setStatus('preparing_execution');
       const account = walletAddress || (await connectWallet({ noProvider: t('walletNoProvider'), noAccount: t('walletNoAccount') }));
-      setWalletAddress(account);
-      const prepared = await postJson<{ execution: ExecutionEvent }>('/api/execution/prepare', { purchaseId: purchase.id, signalId: signal.id, walletAddress: account });
-      setExecution(prepared.execution);
-      setStatus('execution_ready');
-      if (prepared.execution.deeplinkUrl) window.open(prepared.execution.deeplinkUrl, '_blank', 'noopener,noreferrer');
+      await prepareExecutionForWallet(account, purchase);
     } catch (err) {
       setStatus('failed');
       setError(err instanceof Error ? err.message : String(err));
@@ -216,7 +251,8 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
           <div className="flex items-center justify-between"><h2 className="text-2xl font-black">{t('signalExecutionTitle')}</h2><StatusChip label={executionStatusKey ? t(executionStatusKey) : (execution?.verificationStatus ?? t('statusLocked'))} tone={execution?.verificationStatus === 'confirmed' ? 'success' : 'neutral'} /></div>
           <p className="text-sm text-slate-300">{t('signalExecutionHelp')}</p>
           {unlocked ? <div className="rounded-2xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent"><div className="font-bold">{t('detailPancakeLabel')} · {t('detailSwapPlanner')}</div><div>{t('detailEstimatedAmount')}: 0.041 ETH · {t('detailManualOnly')}</div></div> : null}
-          <button className="button w-full" disabled={!unlocked || status === 'preparing_execution'} onClick={prepareExecution}>{execution ? t('signalReopenExecution') : t('signalPrepareExecution')}</button>
+          {autoExecutionPrompt && unlocked && !execution ? <div className="rounded-2xl border border-success/30 bg-success/10 p-4 text-sm text-success"><div className="font-bold">{t('signalAutoExecutionReady')}</div><div className="mt-1">{t('signalAutoExecutionNeedsWallet')}</div></div> : null}
+          <button className="button w-full" disabled={!unlocked || status === 'preparing_execution'} onClick={prepareExecution}>{execution ? t('signalReopenExecution') : autoExecutionPrompt ? t('signalConnectAndPrepare') : t('signalPrepareExecution')}</button>
           {execution?.deeplinkUrl ? <a className="button-secondary w-full" target="_blank" rel="noreferrer" href={execution.deeplinkUrl}>{t('signalOpenDeepLink')}</a> : null}
           <input className="input" value={swapTxHash} onChange={(event) => setSwapTxHash(event.target.value)} placeholder={t('signalSwapHashPlaceholder')} />
           <button className="button w-full" disabled={!execution || !swapTxHash || status === 'execution_confirming'} onClick={confirmExecution}>{t('signalVerifySwap')}</button>

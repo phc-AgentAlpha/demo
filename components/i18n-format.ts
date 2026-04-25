@@ -17,6 +17,10 @@ export function styleLabelKey(value: TradingStyle | 'all'): TranslationKey {
 export function statusLabelKey(value: ChainStatus | string): TranslationKey | null {
   const map: Record<string, TranslationKey> = {
     idle: 'statusIdle',
+    running: 'statusRunning',
+    stopping: 'statusStopping',
+    stopped: 'statusStopped',
+    blocked: 'statusBlocked',
     classifying: 'statusClassifying',
     saving: 'statusSaving',
     saved: 'statusSaved',
