@@ -21,12 +21,12 @@ function classification() {
 }
 
 function consentingProfile() {
-  saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-smart-account', seed: 'aggressive', issuedAt: Date.now() });
+  saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-server-account', seed: 'aggressive', issuedAt: Date.now() });
   return saveProfile({
     ...buildUserProfile({ walletAddress: userSwapWallet, riskPreference: 'high', assetPreference: 'defi', timeHorizon: 'short', consentToIndexing: true, classification: classification() }),
     agentId: 'agent_test_001',
     agentWalletAddress: agentWallet,
-    agentWalletProvider: 'cdp-smart-account',
+    agentWalletProvider: 'cdp-server-account',
   });
 }
 
@@ -70,7 +70,7 @@ describe('market → agent x402 purchase → unlock → execute → derived smok
   });
 
   it('persists the issued agent wallet through the profile route', async () => {
-    saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-smart-account', seed: 'aggressive', issuedAt: Date.now() });
+    saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-server-account', seed: 'aggressive', issuedAt: Date.now() });
     const response = await profileRoute(new Request('http://test.local/api/profile', {
       method: 'POST',
       body: JSON.stringify({ riskPreference: 'high', assetPreference: 'defi', timeHorizon: 'short', consentToIndexing: true, classification: classification(), agentId: 'agent_test_001', agentWalletAddress: agentWallet }),
@@ -136,7 +136,7 @@ describe('market → agent x402 purchase → unlock → execute → derived smok
     const payload = (await response.json()) as { error: string };
 
     expect(response.status).toBe(400);
-    expect(payload.error).toMatch(/Persisted Agent\/AA wallet/);
+    expect(payload.error).toMatch(/Persisted agent wallet/);
   });
 
   it('rejects a plain raw transfer hash as x402 payment evidence', async () => {

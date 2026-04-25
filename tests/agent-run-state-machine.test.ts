@@ -9,7 +9,7 @@ const agentWallet = '0x2222222222222222222222222222222222222222';
 
 function profile(overrides: { dailyMaxUsdc?: number; maxSignalPriceUsdc?: number } = {}) {
   const classification = fallbackClassifyStyle({ riskPreference: 'high', assetPreference: 'defi', timeHorizon: 'short' });
-  saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-smart-account', seed: 'aggressive', issuedAt: Date.now() });
+  saveAgentIssuance({ agentId: 'agent_test_001', walletAddress: agentWallet, walletProvider: 'cdp-server-account', seed: 'aggressive', issuedAt: Date.now() });
   return saveProfile({
     ...buildUserProfile({
       walletAddress: '0x3333333333333333333333333333333333333333',
@@ -22,7 +22,7 @@ function profile(overrides: { dailyMaxUsdc?: number; maxSignalPriceUsdc?: number
     }),
     agentId: 'agent_test_001',
     agentWalletAddress: agentWallet,
-    agentWalletProvider: 'cdp-smart-account',
+    agentWalletProvider: 'cdp-server-account',
   });
 }
 

@@ -9,7 +9,7 @@ export type AssetPreference = 'large' | 'defi' | 'all';
 export type TimeHorizon = 'short' | 'mid' | 'long';
 export type ClassificationSource = 'flock' | 'fallback';
 export type ChainStatus = 'awaiting_wallet' | 'awaiting_agent' | 'pending' | 'confirmed' | 'failed';
-export type AgentWalletProvider = 'deterministic-dev' | 'cdp-smart-account';
+export type AgentWalletProvider = 'deterministic-dev' | 'cdp-server-account' | 'cdp-smart-account';
 export type AgentRunStatus = 'idle' | 'running' | 'stopping' | 'stopped' | 'blocked' | 'failed';
 export type AgentRunEventSeverity = 'info' | 'success' | 'warning' | 'error';
 
@@ -160,7 +160,7 @@ export interface X402PaymentRequest {
     payTo: `0x${string}`;
     maxTimeoutSeconds: number;
     extra: {
-      name: 'USD Coin';
+      name: 'USD Coin' | 'USDC';
       version: '2';
       assetTransferMethod: 'eip3009';
     };

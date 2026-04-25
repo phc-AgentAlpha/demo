@@ -16,14 +16,15 @@ export async function POST(request: Request) {
 
     const profile = body.agentWalletAddress ? latestProfile(body.agentWalletAddress) : latestProfile();
     const agentWalletAddress = profile?.agentWalletAddress;
-    if (!profile || !agentWalletAddress) return jsonError('Persisted Agent/AA wallet is required. Complete onboarding first.', 400);
+    if (!profile || !agentWalletAddress) return jsonError('Persisted agent wallet is required. Complete onboarding first.', 400);
     if (body.agentWalletAddress && body.agentWalletAddress.toLowerCase() !== agentWalletAddress.toLowerCase()) {
       return jsonError('Requested agent wallet does not match the issued onboarding wallet.', 403);
     }
     if (!profile.consentToIndexing) return jsonError('Onboarding consent is required before agent payment.', 403);
-    if (profile.agentWalletProvider !== 'cdp-smart-account') return jsonError('Live x402 payment requires a CDP smart-account agent wallet. Set CDP_AGENT_WALLET_MODE=cdp and complete onboarding again.', 400);
+    if (profile.agentWalletProvider === 'cdp-smart-account') return jsonError('CDP smart-account signatures are not accepted by the current x402 exact EIP-3009 verifier. Complete onboarding again to issue a CDP server-account x402 payer.', 400);
+    if (profile.agentWalletProvider !== 'cdp-server-account') return jsonError('Live x402 payment requires a CDP server-account agent wallet. Set CDP_AGENT_WALLET_MODE=cdp and complete onboarding again.', 400);
     const issuance = getAgentIssuance({ agentId: profile.agentId, walletAddress: agentWalletAddress });
-    if (!issuance || issuance.walletProvider !== 'cdp-smart-account') return jsonError('Issued CDP agent wallet proof is missing. Complete onboarding again.', 403);
+    if (!issuance || issuance.walletProvider !== 'cdp-server-account') return jsonError('Issued CDP server-account proof is missing. Complete onboarding again.', 403);
 
     const intent = createAgentX402PaymentIntent({ signalId: signal.id, agentWalletAddress, priceUsdc: signal.priceUsdc });
     const { x402, ...purchase } = intent;

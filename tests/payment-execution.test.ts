@@ -14,7 +14,7 @@ function cdpProfile(): UserProfile {
     walletAddress: 'wallet_not_connected',
     agentId: 'agent_test_001',
     agentWalletAddress: agentWallet,
-    agentWalletProvider: 'cdp-smart-account',
+    agentWalletProvider: 'cdp-server-account',
     tradingStyle: 'aggressive',
     riskPreference: 'high',
     assetPreference: 'defi',
@@ -44,6 +44,8 @@ describe('live payment/execution adapter contracts', () => {
     expect(requirements).toMatchObject({ scheme: 'exact', network: 'eip155:8453', amount: '300000' });
     expect(requirements.asset).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(requirements.payTo).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(requirements.extra.name).toBe('USD Coin');
+    expect(requirements.extra.version).toBe('2');
     expect(requirements.extra.assetTransferMethod).toBe('eip3009');
   });
 
@@ -56,6 +58,8 @@ describe('live payment/execution adapter contracts', () => {
       const requirements = buildX402PaymentRequirements({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 });
       expect(requirements).toMatchObject({ scheme: 'exact', network: 'eip155:84532', amount: '300000' });
       expect(requirements.asset).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
+      expect(requirements.extra.name).toBe('USDC');
+      expect(requirements.extra.version).toBe('2');
     } finally {
       process.env.BASE_NETWORK = previousBaseNetwork;
       process.env.NEXT_PUBLIC_BASE_NETWORK = previousPublicBaseNetwork;
@@ -133,7 +137,13 @@ describe('live payment/execution adapter contracts', () => {
   it('rejects deterministic-dev wallets as live x402 executors', async () => {
     const intent = createAgentX402PaymentIntent({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 });
     const profile = { ...cdpProfile(), agentWalletProvider: 'deterministic-dev' as const };
-    await expect(executeAgentX402Payment({ profile, purchase: intent, x402: intent.x402 })).rejects.toThrow(/CDP smart-account/);
+    await expect(executeAgentX402Payment({ profile, purchase: intent, x402: intent.x402 })).rejects.toThrow(/CDP server-account/);
+  });
+
+  it('rejects CDP smart accounts as x402 exact EIP-3009 payers', async () => {
+    const intent = createAgentX402PaymentIntent({ signalId: 'sig_discovered_001', agentWalletAddress: agentWallet, priceUsdc: 0.3 });
+    const profile = { ...cdpProfile(), agentWalletProvider: 'cdp-smart-account' as const };
+    await expect(executeAgentX402Payment({ profile, purchase: intent, x402: intent.x402 })).rejects.toThrow(/smart-account signatures are not accepted/);
   });
 
   it('prepares PancakeSwap deep link within swap cap and slippage cap', () => {

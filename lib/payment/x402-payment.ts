@@ -12,6 +12,13 @@ import type { PurchaseEvent, UserProfile, X402PaymentRequest, X402SettlementProo
 
 const X402_PAYMENT_TIMEOUT_SECONDS = 300;
 
+export function x402Eip3009Domain(network: BaseX402Network) {
+  if (network === 'eip155:84532') {
+    return { name: 'USDC', version: '2' } as const;
+  }
+  return { name: 'USD Coin', version: '2' } as const;
+}
+
 export interface CreateAgentX402PaymentInput {
   signalId: string;
   agentWalletAddress: string;
@@ -55,6 +62,7 @@ export function buildX402PaymentRequirements(input: CreateAgentX402PaymentInput)
   const config = getRuntimeConfig();
   const receiverAddress = paymentReceiverAddress();
   const amountUnits = usdcUnits(input.priceUsdc).toString();
+  const domain = x402Eip3009Domain(config.x402Network);
   return {
     scheme: 'exact',
     network: config.x402Network,
@@ -63,8 +71,8 @@ export function buildX402PaymentRequirements(input: CreateAgentX402PaymentInput)
     payTo: receiverAddress,
     maxTimeoutSeconds: X402_PAYMENT_TIMEOUT_SECONDS,
     extra: {
-      name: 'USD Coin',
-      version: '2',
+      name: domain.name,
+      version: domain.version,
       assetTransferMethod: 'eip3009',
     },
   };
@@ -147,7 +155,10 @@ function createX402Client(signer: ClientEvmSigner, network: BaseX402Network) {
 
 export async function executeAgentX402Payment(input: { profile: UserProfile; purchase: PurchaseEvent; x402: X402PaymentRequest; signer?: ClientEvmSigner }): Promise<AgentX402ExecutionResult> {
   const { profile, purchase, x402 } = input;
-  if (profile.agentWalletProvider !== 'cdp-smart-account') throw new Error('Live x402 payment requires a CDP smart-account agent wallet.');
+  if (profile.agentWalletProvider === 'cdp-smart-account') {
+    throw new Error('CDP smart-account signatures are not accepted by the current x402 exact EIP-3009 verifier. Complete onboarding again to issue a CDP server-account x402 payer.');
+  }
+  if (profile.agentWalletProvider !== 'cdp-server-account') throw new Error('Live x402 payment requires a CDP server-account agent wallet.');
   if (profile.agentWalletAddress?.toLowerCase() !== x402.agentWalletAddress.toLowerCase()) throw new Error('x402 payer does not match the issued agent wallet.');
 
   if (process.env.AGENTALPHA_MOCK_X402_SETTLEMENT === 'true') {

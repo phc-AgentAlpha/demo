@@ -41,14 +41,13 @@ export async function createAgentWallet(seed = 'alex'): Promise<DemoAgentProfile
   });
   const suffix = normalizedSeed(seed);
   const owner = await cdp.evm.getOrCreateAccount({ name: `agentalpha-${suffix}-owner` });
-  const smartAccount = await cdp.evm.getOrCreateSmartAccount({ name: `agentalpha-${suffix}-aa`, owner, enableSpendPermissions: false });
 
   return {
-    agentId: `cdp_${suffix}_${smartAccount.address.slice(2, 8).toLowerCase()}`,
-    walletAddress: smartAccount.address,
+    agentId: `cdp_eoa_${suffix}_${owner.address.slice(2, 8).toLowerCase()}`,
+    walletAddress: owner.address,
     status: 'active',
     usdcBalance: mockDashboard.usdcBalance,
-    walletProvider: 'cdp-smart-account',
+    walletProvider: 'cdp-server-account',
   };
 }
 
@@ -62,7 +61,10 @@ export function getDemoAgentBalance(agentId: string) {
 
 export async function getCdpAgentPaymentSigner(profile: UserProfile) {
   const config = getRuntimeConfig();
-  if (profile.agentWalletProvider !== 'cdp-smart-account') throw new Error('A CDP smart-account agent wallet is required for live x402 payment.');
+  if (profile.agentWalletProvider === 'cdp-smart-account') {
+    throw new Error('CDP smart-account signatures are not accepted by the current x402 exact EIP-3009 verifier. Complete onboarding again to issue a CDP server-account x402 payer.');
+  }
+  if (profile.agentWalletProvider !== 'cdp-server-account') throw new Error('A CDP server-account agent wallet is required for live x402 payment.');
   if (!config.cdp.apiKeyId || !config.cdp.apiKeySecret || !config.cdp.walletSecret) {
     throw new Error('CDP credentials are required to sign live x402 payments from the agent wallet.');
   }
@@ -74,11 +76,10 @@ export async function getCdpAgentPaymentSigner(profile: UserProfile) {
   });
   const suffix = normalizedSeed(profile.tradingStyle);
   const owner = await cdp.evm.getOrCreateAccount({ name: `agentalpha-${suffix}-owner` });
-  const smartAccount = await cdp.evm.getOrCreateSmartAccount({ name: `agentalpha-${suffix}-aa`, owner, enableSpendPermissions: false });
-  if (smartAccount.address.toLowerCase() !== profile.agentWalletAddress?.toLowerCase()) {
-    throw new Error('CDP smart account does not match the persisted agent wallet.');
+  if (owner.address.toLowerCase() !== profile.agentWalletAddress?.toLowerCase()) {
+    throw new Error('CDP server account does not match the persisted agent wallet.');
   }
-  const baseAccount = await smartAccount.useNetwork(config.cdp.network);
+  const baseAccount = await owner.useNetwork(config.cdp.network);
   return {
     address: baseAccount.address,
     signTypedData: baseAccount.signTypedData,

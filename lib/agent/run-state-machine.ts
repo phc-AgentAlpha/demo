@@ -25,7 +25,7 @@ export function agentScanIntervalMs() {
 }
 
 function requireAgentProfile(profile: UserProfile) {
-  if (!profile.agentId || !profile.agentWalletAddress) throw new Error('An issued Agent/AA wallet is required before starting the agent loop.');
+  if (!profile.agentId || !profile.agentWalletAddress) throw new Error('An issued agent wallet is required before starting the agent loop.');
   if (!profile.consentToIndexing) throw new Error('Onboarding consent is required before agent run logging.');
 }
 

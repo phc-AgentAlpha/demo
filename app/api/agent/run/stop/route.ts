@@ -8,7 +8,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { agentWalletAddress?: string };
     const profile = latestProfile(body.agentWalletAddress);
-    if (!profile) return jsonError('Persisted onboarding profile with issued Agent/AA wallet is required.', 400);
+    if (!profile) return jsonError('Persisted onboarding profile with issued agent wallet is required.', 400);
     const run = stopAgentRun(profile);
     return jsonOk({ run });
   } catch (error) {
