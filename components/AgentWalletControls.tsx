@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { baseWalletChainParams, explorerAddressUrl, explorerTxUrl, getPublicBaseNetworkProfile } from '@/lib/chains';
 import type { UserProfile } from '@/lib/types';
 import { buildAgentUsdcDepositTx, MAX_AGENT_DEPOSIT_USDC } from '@/lib/wallet/agent-wallet';
@@ -21,6 +21,13 @@ interface AgentWalletControlsProps {
   agentWalletAddress?: string;
   initialBalanceUsdc?: number;
   compact?: boolean;
+  onBalanceRefresh?: (balance: AgentWalletBalancePayload) => void;
+}
+
+interface AgentWalletBalancePayload {
+  usdcBalance: number;
+  ethBalance: number;
+  updatedAt: number;
 }
 
 function shorten(address: string, size = 6) {
@@ -76,13 +83,16 @@ async function copyText(text: string) {
   document.body.removeChild(textarea);
 }
 
-export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, compact = false }: AgentWalletControlsProps) {
+export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, compact = false, onBalanceRefresh }: AgentWalletControlsProps) {
   const { t } = useI18n();
   const [storedAddress, setStoredAddress] = useState('');
   const [copied, setCopied] = useState(false);
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [amountUsdc, setAmountUsdc] = useState('0.5');
+  const [liveBalance, setLiveBalance] = useState<AgentWalletBalancePayload | null>(null);
+  const [balanceStatus, setBalanceStatus] = useState<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+  const [balanceError, setBalanceError] = useState('');
   const [depositStatus, setDepositStatus] = useState<'idle' | 'pending' | 'confirmed' | 'failed'>('idle');
   const [depositTxHash, setDepositTxHash] = useState('');
   const [error, setError] = useState('');
@@ -94,6 +104,28 @@ export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, co
   const walletAddress = agentWalletAddress ?? storedAddress;
   const publicBaseProfile = useMemo(() => getPublicBaseNetworkProfile(), []);
   const explorerUrl = useMemo(() => (walletAddress ? explorerAddressUrl(walletAddress, publicBaseProfile) : ''), [publicBaseProfile, walletAddress]);
+  const displayedUsdcBalance = liveBalance?.usdcBalance ?? initialBalanceUsdc;
+
+  const refreshBalance = useCallback(async () => {
+    if (!walletAddress) return;
+    setBalanceStatus('loading');
+    setBalanceError('');
+    try {
+      const response = await fetch(`/api/agent/balance?agentWalletAddress=${encodeURIComponent(walletAddress)}`);
+      const payload = (await response.json()) as { balance?: AgentWalletBalancePayload; error?: string };
+      if (!response.ok || !payload.balance) throw new Error(payload.error ?? `Balance refresh failed: ${response.status}`);
+      setLiveBalance(payload.balance);
+      onBalanceRefresh?.(payload.balance);
+      setBalanceStatus('ready');
+    } catch (err) {
+      setBalanceStatus('failed');
+      setBalanceError(err instanceof Error ? err.message : String(err));
+    }
+  }, [onBalanceRefresh, walletAddress]);
+
+  useEffect(() => {
+    void refreshBalance();
+  }, [refreshBalance]);
 
   async function handleCopy() {
     if (!walletAddress) return;
@@ -113,6 +145,7 @@ export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, co
       const txHash = await window.ethereum!.request<string>({ method: 'wallet_sendTransaction', params: [tx] });
       setDepositTxHash(txHash);
       setDepositStatus('confirmed');
+      window.setTimeout(() => void refreshBalance(), 4000);
     } catch (err) {
       setDepositStatus('failed');
       setError(err instanceof Error ? err.message : String(err));
@@ -135,15 +168,21 @@ export function AgentWalletControls({ agentWalletAddress, initialBalanceUsdc, co
         <div className="min-w-0">
           <div className="flex flex-wrap gap-2">
             <StatusChip label={t('agentWalletReadyBadge')} tone="success" />
-            {typeof initialBalanceUsdc === 'number' ? <StatusChip label={`${initialBalanceUsdc.toFixed(2)} USDC`} tone="accent" /> : null}
+            {typeof displayedUsdcBalance === 'number' ? <StatusChip label={`${displayedUsdcBalance.toFixed(2)} USDC`} tone="accent" /> : <StatusChip label={t(balanceStatus === 'loading' ? 'agentWalletBalanceLoading' : 'agentWalletBalanceUnavailable')} tone="warning" />}
+            {liveBalance ? <StatusChip label={`${liveBalance.ethBalance.toFixed(5)} ETH`} tone="neutral" /> : null}
           </div>
           <h2 className="mt-3 text-2xl font-black">{t('agentWalletTitle')}</h2>
           <p className="mt-1 text-sm text-slate-400">{t('agentWalletSubtitle')}</p>
+          <p className="mt-2 text-xs text-slate-500">
+            {liveBalance ? `${t('agentWalletBalanceLive')} · ${new Date(liveBalance.updatedAt).toLocaleTimeString()}` : balanceStatus === 'loading' ? t('agentWalletBalanceLoading') : null}
+          </p>
+          {balanceError ? <p className="mt-2 text-xs text-danger">{balanceError}</p> : null}
           <code className="mt-3 block break-all rounded-2xl bg-panel/70 p-3 text-xs text-accent">{walletAddress}</code>
         </div>
         <div className="grid shrink-0 gap-2 sm:grid-cols-2 lg:min-w-72">
           <button className="button-secondary" type="button" onClick={handleCopy}>{copied ? t('agentWalletCopied') : t('agentWalletCopy')}</button>
           <a className="button-secondary text-center" href={explorerUrl} target="_blank" rel="noreferrer">{t('agentWalletOpenBasescan')}</a>
+          <button className="button-secondary" type="button" disabled={balanceStatus === 'loading'} onClick={() => void refreshBalance()}>{balanceStatus === 'loading' ? t('agentWalletBalanceLoading') : t('agentWalletRefresh')}</button>
           <button className="button" type="button" onClick={() => { setDepositOpen((value) => !value); setWithdrawOpen(false); }}>{t('agentWalletDeposit')}</button>
           <button className="button-secondary" type="button" onClick={() => { setWithdrawOpen((value) => !value); setDepositOpen(false); }}>{t('agentWalletWithdraw')}</button>
         </div>

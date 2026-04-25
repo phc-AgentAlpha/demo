@@ -1,5 +1,4 @@
 import { getRuntimeConfig } from '../env';
-import { mockDashboard } from '../mock-data';
 import type { AgentWalletProvider, UserProfile } from '../types';
 
 export interface DemoAgentProfile {
@@ -21,7 +20,7 @@ export function createDemoAgent(seed = 'alex'): DemoAgentProfile {
     agentId: `agent_${suffix}_001`,
     walletAddress: `0xaa${seedHex}`,
     status: 'active',
-    usdcBalance: mockDashboard.usdcBalance,
+    usdcBalance: 0,
     walletProvider: 'deterministic-dev',
   };
 }
@@ -46,7 +45,7 @@ export async function createAgentWallet(seed = 'alex'): Promise<DemoAgentProfile
     agentId: `cdp_eoa_${suffix}_${owner.address.slice(2, 8).toLowerCase()}`,
     walletAddress: owner.address,
     status: 'active',
-    usdcBalance: mockDashboard.usdcBalance,
+    usdcBalance: 0,
     walletProvider: 'cdp-server-account',
   };
 }
@@ -54,7 +53,7 @@ export async function createAgentWallet(seed = 'alex'): Promise<DemoAgentProfile
 export function getDemoAgentBalance(agentId: string) {
   return {
     agentId,
-    usdcBalance: mockDashboard.usdcBalance,
+    usdcBalance: 0,
     updatedAt: Date.now(),
   };
 }

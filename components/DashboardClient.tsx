@@ -17,6 +17,14 @@ interface AgentState {
   walletAddress: string;
   status: 'active' | 'idle' | 'running';
   usdcBalance: number;
+  ethBalance?: number;
+  balanceUpdatedAt?: number;
+}
+
+interface AgentBalancePayload {
+  usdcBalance: number;
+  ethBalance: number;
+  updatedAt: number;
 }
 
 async function jsonRequest<T>(url: string, init?: RequestInit): Promise<T> {
@@ -61,6 +69,31 @@ export function DashboardClient() {
     setRun(payload.run);
   }, [agent?.walletAddress]);
 
+  const refreshAgentBalance = useCallback(async (walletAddress: string, agentId?: string) => {
+    const params = new URLSearchParams({ agentWalletAddress: walletAddress });
+    if (agentId) params.set('agentId', agentId);
+    const payload = await jsonRequest<{ balance: AgentBalancePayload }>(`/api/agent/balance?${params.toString()}`);
+    setAgent((current) => {
+      if (!current || current.walletAddress.toLowerCase() !== walletAddress.toLowerCase()) return current;
+      return {
+        ...current,
+        usdcBalance: payload.balance.usdcBalance,
+        ethBalance: payload.balance.ethBalance,
+        balanceUpdatedAt: payload.balance.updatedAt,
+      };
+    });
+    return payload.balance;
+  }, []);
+
+  const handleAgentBalanceRefresh = useCallback((balance: AgentBalancePayload) => {
+    setAgent((current) => current ? {
+      ...current,
+      usdcBalance: balance.usdcBalance,
+      ethBalance: balance.ethBalance,
+      balanceUpdatedAt: balance.updatedAt,
+    } : current);
+  }, []);
+
   useEffect(() => {
     const raw = window.localStorage.getItem('userProfile') ?? window.localStorage.getItem('agentalpha_profile');
     if (!raw) {
@@ -71,27 +104,27 @@ export function DashboardClient() {
     window.localStorage.setItem('userProfile', JSON.stringify(parsed));
     window.localStorage.setItem('agentalpha_profile', JSON.stringify(parsed));
     setProfile(parsed);
-    const existingAgent = parsed.agentId && parsed.agentWalletAddress ? { agentId: parsed.agentId, walletAddress: parsed.agentWalletAddress, status: 'active' as const, usdcBalance: mockDashboard.usdcBalance } : null;
+    const existingAgent = parsed.agentId && parsed.agentWalletAddress ? { agentId: parsed.agentId, walletAddress: parsed.agentWalletAddress, status: 'active' as const, usdcBalance: 0 } : null;
     if (existingAgent) {
       setAgent(existingAgent);
       void refreshRun(existingAgent.walletAddress).catch(() => undefined);
+      void refreshAgentBalance(existingAgent.walletAddress, existingAgent.agentId).catch(() => undefined);
       setLoading(false);
       return;
     }
     fetch('/api/agent/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ seed: parsed.tradingStyle }) })
       .then((response) => response.json())
       .then(async (payload: { agent: AgentState }) => {
-        const balanceResponse = await fetch(`/api/agent/balance?agentId=${encodeURIComponent(payload.agent.agentId)}`);
-        const balancePayload = (await balanceResponse.json()) as { balance?: { usdcBalance: number } };
-        const nextAgent = { ...payload.agent, usdcBalance: balancePayload.balance?.usdcBalance ?? payload.agent.usdcBalance };
+        const nextAgent = { ...payload.agent, usdcBalance: 0 };
         setAgent(nextAgent);
         const next = { ...parsed, agentId: payload.agent.agentId, agentWalletAddress: payload.agent.walletAddress };
         window.localStorage.setItem('userProfile', JSON.stringify(next));
         window.localStorage.setItem('agentalpha_profile', JSON.stringify(next));
         void refreshRun(payload.agent.walletAddress).catch(() => undefined);
+        void refreshAgentBalance(payload.agent.walletAddress, payload.agent.agentId).catch(() => undefined);
       })
       .finally(() => setLoading(false));
-  }, [refreshRun]);
+  }, [refreshAgentBalance, refreshRun]);
 
   useEffect(() => {
     if (!agent?.walletAddress) return;
@@ -187,11 +220,11 @@ export function DashboardClient() {
           </div>
           <div className="flex items-center gap-2"><span className={isRunning ? 'h-3 w-3 animate-pulse rounded-full bg-success' : 'h-3 w-3 rounded-full bg-slate-600'} /><span className={isRunning ? 'text-sm text-success' : 'text-sm text-slate-400'}>{run?.status ?? 'idle'}</span></div>
         </div>
-        {agent ? <div className="mt-5"><AgentWalletControls agentWalletAddress={agent.walletAddress} initialBalanceUsdc={agent.usdcBalance} compact /></div> : null}
+        {agent ? <div className="mt-5"><AgentWalletControls agentWalletAddress={agent.walletAddress} initialBalanceUsdc={agent.usdcBalance} onBalanceRefresh={handleAgentBalanceRefresh} compact /></div> : null}
       </section>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <Metric label={t('dashboardUsdcBalance')} value={`${(agent?.usdcBalance ?? mockDashboard.usdcBalance).toFixed(2)} USDC`} />
+        <Metric label={t('dashboardUsdcBalance')} value={`${(agent?.usdcBalance ?? 0).toFixed(2)} USDC`} />
         <Metric label={t('dashboardTradingPnl')} value={`+${mockDashboard.tradingPnl}%`} tone="success" />
         <Metric label={t('dashboardPurchaseCount')} value={String(mockDashboard.purchaseCount)} />
         <Metric label={t('dashboardSignalRevenue')} value={`${(mockDashboard.signalRevenueDirect + mockDashboard.signalRevenueDerived).toFixed(2)} USDC`} tone="accent" />
