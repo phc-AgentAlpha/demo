@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { explorerAddressUrl } from '@/lib/chains';
 import type { ExecutionEvent, PurchaseEvent, Signal, UserProfile, X402PaymentRequest } from '@/lib/types';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
@@ -198,6 +199,9 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
             <div className="space-y-2 rounded-2xl border border-accent/30 bg-accent/10 p-4 text-xs text-accent">
               <div className="font-bold">{t('signalAgentWallet')}</div>
               <code className="block break-all">{x402Payment.agentWalletAddress}</code>
+              <a className="inline-block font-bold underline" target="_blank" rel="noreferrer" href={explorerAddressUrl(x402Payment.agentWalletAddress)}>
+                {t('signalOpenAgentBasescan')} ↗
+              </a>
               <div className="pt-2 font-bold">{t('signalX402Resource')}</div>
               <code className="block break-all">{x402Payment.resourceUrl}</code>
               <div className="text-slate-300">exact · {x402Payment.network} · {x402Payment.amountUsdc.toFixed(2)} USDC</div>

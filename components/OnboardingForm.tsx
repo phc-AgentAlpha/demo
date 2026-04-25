@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { explorerAddressUrl } from '@/lib/chains';
 import type { AssetPreference, ClassifyStyleResponse, RiskPreference, TimeHorizon, UserProfile } from '@/lib/types';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
@@ -147,7 +148,21 @@ export function OnboardingForm() {
             {t('onboardingConsent')}
           </label>
           <button className="button" disabled={!consent || status === 'saving'} onClick={saveProfile}>{status === 'saving' ? t('onboardingSaving') : t('onboardingPersist')}</button>
-          {profile ? <div className="rounded-2xl border border-success/30 bg-success/10 p-4 text-sm text-success">{t('onboardingSaved')}</div> : null}
+          {profile ? (
+            <div className="rounded-2xl border border-success/30 bg-success/10 p-4 text-sm text-success">
+              <div>{t('onboardingSaved')}</div>
+              {profile.agentWalletAddress ? (
+                <a
+                  className="mt-2 inline-block font-bold underline"
+                  href={explorerAddressUrl(profile.agentWalletAddress)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t('dashboardOpenAgentBasescan')} ↗
+                </a>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -2,6 +2,7 @@ export const BASE_CHAIN_ID = 8453;
 export const BASE_CHAIN_ID_HEX = '0x2105' as const;
 export const BASE_RPC_DEFAULT = 'https://mainnet.base.org';
 export const BASE_EXPLORER_TX = 'https://basescan.org/tx';
+export const BASE_EXPLORER_ADDRESS = 'https://basescan.org/address';
 
 export const BASE_TOKENS = {
   USDC: {
@@ -23,6 +24,10 @@ export const BASE_TOKENS = {
 
 export function explorerTxUrl(txHash: string) {
   return `${BASE_EXPLORER_TX}/${txHash}`;
+}
+
+export function explorerAddressUrl(address: string) {
+  return `${BASE_EXPLORER_ADDRESS}/${address}`;
 }
 
 export function tokenAddress(symbol: string): `0x${string}` {

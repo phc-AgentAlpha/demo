@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { explorerAddressUrl } from '@/lib/chains';
 import { mockDashboard } from '@/lib/mock-data';
 import type { UserProfile } from '@/lib/types';
 import { StatusChip } from './StatusChip';
@@ -77,7 +78,19 @@ export function DashboardClient() {
             <h1 className="mt-4 text-4xl font-black">{t('dashboardTitle')}</h1>
             <p className="mt-2 max-w-3xl text-slate-300">{t('dashboardSubtitle')}</p>
           </div>
-          {agent ? <div className="rounded-2xl border border-line px-4 py-2 text-right"><div className="text-xs text-slate-500">{t('dashboardAgentWallet')}</div><div className="font-mono text-sm text-accent">{shorten(agent.walletAddress)}</div></div> : null}
+          {agent ? (
+            <a
+              className="rounded-2xl border border-line px-4 py-2 text-right transition hover:border-accent/60 hover:bg-accent/10"
+              href={explorerAddressUrl(agent.walletAddress)}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`${t('dashboardOpenAgentBasescan')}: ${agent.walletAddress}`}
+            >
+              <div className="text-xs text-slate-500">{t('dashboardAgentWallet')}</div>
+              <div className="font-mono text-sm text-accent">{shorten(agent.walletAddress)}</div>
+              <div className="mt-1 text-xs text-accent underline">{t('dashboardOpenAgentBasescan')} ↗</div>
+            </a>
+          ) : null}
         </div>
       </section>
 

@@ -97,6 +97,7 @@ export const dictionaries = {
     signalDerivedCreated: 'Derived relation created from real swap ledger evidence.',
     signalFlowError: 'Flow error',
     signalOpenBasescan: 'Open Basescan proof',
+    signalOpenAgentBasescan: 'View agent wallet activity',
     walletNoProvider: 'No EIP-1193 wallet found. Install Coinbase Wallet/MetaMask for live Base swap flow.',
     walletNoAccount: 'Wallet did not return an account.',
 
@@ -176,6 +177,7 @@ export const dictionaries = {
     dashboardSubtitle: 'Alex scenario hub: profile, demo agent status, wallet balance, recent trading, and the next recommended action.',
     dashboardAgentReady: 'Agent issued',
     dashboardAgentWallet: 'AA wallet',
+    dashboardOpenAgentBasescan: 'View on-chain activity',
     dashboardIssuing: 'Issuing agent…',
     dashboardUsdcBalance: 'USDC balance',
     dashboardTradingPnl: 'Total return',
@@ -344,6 +346,7 @@ export const dictionaries = {
     signalDerivedCreated: '실제 swap ledger 증거로 derived relation이 생성되었습니다.',
     signalFlowError: '플로우 오류',
     signalOpenBasescan: 'Basescan 증거 열기',
+    signalOpenAgentBasescan: '에이전트 지갑 활동 보기',
     walletNoProvider: 'EIP-1193 지갑을 찾을 수 없습니다. 라이브 Base swap 플로우를 위해 Coinbase Wallet/MetaMask를 설치하세요.',
     walletNoAccount: '지갑에서 계정을 반환하지 않았습니다.',
 
@@ -423,6 +426,7 @@ export const dictionaries = {
     dashboardSubtitle: 'Alex 시나리오 허브: 프로필, 데모 에이전트 상태, 지갑 잔액, 최근 거래, 다음 추천 액션을 보여줍니다.',
     dashboardAgentReady: '에이전트 발급 완료',
     dashboardAgentWallet: 'AA wallet',
+    dashboardOpenAgentBasescan: '온체인 활동 보기',
     dashboardIssuing: '에이전트 발급 중…',
     dashboardUsdcBalance: 'USDC 잔액',
     dashboardTradingPnl: '총 수익률',
