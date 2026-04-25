@@ -1,7 +1,7 @@
-# AgentAlpha — 전체 기획서 v4.0
+# AgentAlpha — 전체 기획서 v6.0
 
-> Base 위 AA 에이전트 트레이딩 데이터를 인덱싱하고, 전략성 검증을 거쳐 마켓에 판매하며,
-> 유저의 후속 거래까지 derived 신호로 추적해 원본 기여자에게 수익을 환원하는 온체인 데이터 경제.
+> v5 대비 변경: Smart Money 한정 → **Base 전체 DEX 트레이딩 인덱싱 + Nansen 품질 필터링**.
+> 데이터 풀이 넓어지고, Nansen 라벨이 큐레이션 도구가 됨.
 
 ---
 
@@ -10,667 +10,544 @@
 | 항목 | 내용 |
 |------|------|
 | 프로젝트명 | AgentAlpha |
-| 버전 | v4.0 (해커톤 MVP 기준) |
-| 한 줄 정의 | Base AA 에이전트 트레이딩 신호 마켓플레이스 + derived 신호 추적 시스템 |
-| 핵심 차별점 | 전략성 점수 기반 신호 큐레이션 + 원본-파생 관계 추적 + 자동 수익 환원 |
-| 스택 | Next.js 14, TypeScript, Tailwind, Alchemy, AgentKit, x402, Flock.io |
-| 체인 | Base Sepolia (testnet) |
+| 버전 | v6.0 (해커톤 MVP) |
+| 한 줄 정의 | Base 전체 DEX 트레이딩 인덱싱 + Nansen 품질 필터링 + derived 신호 추적 마켓 |
+| 핵심 차별점 | 자체 인덱싱으로 풍부한 데이터 풀 + Nansen으로 품질 검증 + 원본-파생 추적 |
+| 스택 | Next.js 14, TypeScript, Tailwind |
+| 외부 인프라 | **Nansen API** (라벨/검증) + **PancakeSwap AI** (DEX 실행) + **Alchemy** (인덱싱) |
+| 결제 | x402 Protocol |
+| LLM | Flock.io |
+| 체인 | Base Mainnet |
 
-### 핵심 가치 제안
+### v5 → v6 핵심 변화
 
-기존 카피트레이딩 플랫폼은 두 가지 한계가 있다.
+v5는 Nansen Smart Money 5,000개 지갑만 인덱싱했음. 이 방식의 한계:
+- 데이터 풀이 Nansen 큐레이션에 100% 의존
+- 신규/언더그라운드 트레이더는 영원히 마켓에 없음
+- 차별화 포인트가 약함 ("Nansen 데이터 보여주는 사이트")
 
-첫째, **신호 품질 검증이 불투명**하다. 백테스트 조작과 허위 수익률 광고가 만연하다.
-둘째, **데이터 생산자에게 보상이 없다**. 플랫폼이 데이터를 독점하고 수익을 가져간다.
+v6에서는 **자체 인덱서로 Base 전체 DEX 트랜잭션을 수집**하고, 그중 일정 활동량을 충족한 지갑을 후보군으로 만든 뒤, **Nansen으로 라벨링/품질 점수 부여**해서 마켓에 노출함.
 
-AgentAlpha는 두 문제를 동시에 해결한다.
+```
+v5 흐름: Nansen Smart Money 목록 → 마켓
+v6 흐름: Base 전체 DEX 거래 → 활동량 필터 → Nansen 라벨 보강 → 마켓
+```
 
-- **온체인 검증**: 모든 신호는 Base 온체인 트랜잭션 기반이라 조작 불가능하다.
-- **전략성 큐레이션**: MEV 봇이나 단순 스왑 봇은 자동 필터링되고 진짜 트레이딩 전략을 가진 에이전트만 신호로 등록된다.
-- **원본-파생 추적**: 유저가 신호를 사서 따라 거래한 행동도 인덱싱되어 마켓에 올라간다. 이때 원본 신호와의 관계가 저장되어 derived 신호 판매 시 원본 기여자에게 수익이 우선 배분된다.
+이렇게 되면:
+- **데이터 풀이 압도적으로 넓어짐**: Smart Money 외 모든 활성 트레이더 포함
+- **Nansen은 검증 도구로 활용**: 라벨 있음 = 검증된 지갑 / 라벨 없음 = 신규 발굴
+- **차별화 분명해짐**: 우리만의 인덱싱 + 외부 검증 보강
 
 ---
 
-## 2. 핵심 아키텍처 (4-Layer)
+## 2. 5-Layer 아키텍처
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Layer 1 — 인덱서                                         │
-│                                                         │
-│  Base 전체 트랜잭션                                        │
-│       ↓ 주소별 DEX 상호작용 추출                            │
-│       ↓ 최소 활동 기준 필터                                 │
-│       ↓ 비전략성 주소 제거                                  │
-│       ↓ 전략성 점수 계산 (4가지 지표)                        │
-│       ↓ 트레이딩 지표 계산                                  │
-│       ↓ 행동 유형 분류                                     │
-│       ↓ Flock LLM 전략 태깅                               │
-│  Signal DB 적재                                          │
-└─────────────────────────────────────────────────────────┘
-         ↓
-┌─────────────────────────────────────────────────────────┐
-│  Layer 2 — 마켓플레이스                                   │
-│                                                         │
-│  source: external / user / derived 구분                  │
-│  랭킹 (성과 + 안정성 + 전략성 점수)                          │
-│  성향 필터, 상품 상세, 원본 여부 표시                         │
-└─────────────────────────────────────────────────────────┘
-         ↓
-┌─────────────────────────────────────────────────────────┐
-│  Layer 3 — 유저                                          │
-│                                                         │
-│  설문 → 성향 분류 → 프로필 생성                             │
-│  마켓 탐색 → 신호 선택 → x402 결제                          │
-│  지갑/실행 모듈 연동 → DEX 스왑 → 성과                      │
-└─────────────────────────────────────────────────────────┘
-         ↓
-┌─────────────────────────────────────────────────────────┐
-│  Layer 4 — 환원 및 재인덱싱                                │
-│                                                         │
-│  유저 후속 행동 재감지                                       │
-│  ├── 원본 신호와 유사 → derived 태깅 → 원본 관계 저장          │
-│  └── 비유사 → new candidate signal                        │
-│                                                         │
-│  신호 판매 시 source별 수익 배분                             │
-│  ├── external → 플랫폼 수익                                │
-│  ├── user original → 유저 80% / 플랫폼 20%                 │
-│  └── derived → 원본 우선 배분 + 잔여분 분배                  │
-└─────────────────────────────────────────────────────────┘
+Layer 0 — Raw 인덱싱 (Alchemy)
+  Base 전체 트랜잭션 → DEX 라우터 상호작용만 추출
+  주소별로 거래 그룹화
+       ↓
+Layer 1 — 1차 필터 + 검증 (자체 + Nansen)
+  Gate 1: 최소 활동 기준 (volume / 빈도 / 자산 다양성)
+  Gate 2: Nansen 라벨 조회 → 품질 점수 부여
+       ├── Nansen 라벨 있음: 검증된 지갑 (Smart Money / Whale 등)
+       └── Nansen 라벨 없음: 신규 후보 (자체 메트릭만으로 평가)
+       ↓
+Layer 2 — 마켓플레이스
+  source: indexed (검증) / indexed (신규) / user / derived
+  랭킹: Nansen 라벨 + 자체 PnL + 활동 빈도
+       ↓
+Layer 3 — 유저 (Onboarding + 실행)
+  설문 → Flock LLM 분류 → 프로필
+  마켓 탐색 → 신호 선택 → x402 결제
+       ↓
+  PancakeSwap AI swap-planner
+       ↓
+Layer 4 — 환원 및 재인덱싱
+  Layer 0이 유저 후속 거래 자동 감지
+  유사 → derived 태깅 / 비유사 → 신규 후보
+  source별 수익 분배
 ```
+
+v5와의 차이는 **Layer 0**이 새로 생긴 것. Layer 1이 "Nansen에서 받기" → "Nansen으로 검증하기"로 바뀜.
 
 ---
 
-## 3. Layer 1 — 인덱서 상세
+## 3. Layer 0 — Raw 인덱싱 (Alchemy)
 
-### 3.1 데이터 소스
-- **인프라**: Alchemy SDK (`alchemy_getAssetTransfers`)
-- **fallback**: `lib/mock-data.ts` (해커톤 시연용)
-- **체인**: Base Sepolia
-- **수집 범위**: ERC-20 transfers + DEX 라우터 컨트랙트 상호작용
+### 3.1 데이터 수집 범위
 
-### 3.2 필터링 게이트
+| 수집 대상 | 도구 | 빈도 |
+|---------|------|------|
+| Base 전체 ERC-20 transfers | Alchemy `getAssetTransfers` | 5분 폴링 또는 webhook |
+| DEX 라우터 컨트랙트 상호작용 | Alchemy logs filtering | 실시간 |
+| 주소별 거래 누적 | 자체 DB | upsert |
 
-#### Gate 1: 최소 활동 기준
+### 3.2 DEX 라우터 화이트리스트 (Base Mainnet)
+
+```typescript
+const DEX_ROUTERS = [
+  '0x2626664c2603336E57B271c5C0b26F421741e481', // Uniswap V3 SwapRouter02
+  '0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43', // Aerodrome Router
+  '0x8c7d3063579bdb0b9e1d9e4c5e0f1f4f5e5e5e5e', // PancakeSwap V3 (Base)
+  // 필요시 추가
+]
+```
+
+### 3.3 인덱싱 파이프라인
+
+```typescript
+// lib/indexer.ts
+
+async function indexRecentTrades(fromBlock: number, toBlock: number) {
+  // 1. Alchemy에서 DEX 라우터 대상 ERC-20 transfers 가져오기
+  const transfers = await alchemy.core.getAssetTransfers({
+    fromBlock: hex(fromBlock),
+    toBlock: hex(toBlock),
+    category: ['erc20'],
+    contractAddresses: DEX_ROUTERS,
+  });
+
+  // 2. 주소별 그룹화
+  const byWallet = groupTradesByWallet(transfers);
+
+  for (const [address, trades] of Object.entries(byWallet)) {
+    await upsertWalletActivity(address, trades);
+  }
+}
+```
+
+`ALCHEMY_API_KEY` 없으면 mock-data.ts의 mockTrades 반환.
+
+---
+
+## 4. Layer 1 — 1차 필터 + Nansen 검증
+
+### 4.1 Gate 1: 최소 활동 기준
+
 ```typescript
 interface MinActivityCriteria {
-  totalTrades: number;        // ≥ 10건 (지난 30일)
-  uniqueAssets: number;       // ≥ 2개 자산 페어
-  totalVolumeUsdc: number;    // ≥ 500 USDC 누적 거래량
-  activeDays: number;         // ≥ 5일 활동
+  totalTrades30d: number;       // ≥ 5
+  uniqueAssets: number;         // ≥ 2
+  totalVolumeUsd: number;       // ≥ 1,000
+  activeDays30d: number;        // ≥ 3
 }
 ```
 
-이 기준 미달 주소는 신호 후보에서 제외. 일회성 테스트 거래나 dust 봇 제거.
+이 기준 미달 지갑은 후보에서 제외 (dust 봇, 일회성 거래자 제거).
 
-#### Gate 2: 비전략성 주소 판별
-다음 패턴 중 하나라도 해당하면 비전략성으로 분류해 제외한다.
+### 4.2 Gate 2: Nansen 라벨 조회
 
-- **MEV 봇 시그니처**: 같은 블록 내 sandwich 패턴, flashloan 사용
-- **아비트라지 봇**: DEX 간 가격차 활용 거래만 반복
-- **단순 스왑**: 매수만 또는 매도만 하는 일방향 거래
-- **밋코인 펌프**: 신규 토큰 단기 진입 후 즉시 dump
-
-판별은 휴리스틱 + 트랜잭션 패턴 분석. MVP에서는 단순화한 규칙으로 시작.
-
-### 3.3 전략성 점수 (Strategy Score)
-
-4가지 지표를 0-100으로 정규화 후 가중평균.
-
-| 지표 | 정의 | 가중치 |
-|------|------|------|
-| **반복성** | 유사 거래 패턴 반복 빈도. 동일 자산/방향/사이즈 거래의 표준편차 | 30% |
-| **회전율** | 평균 보유 기간의 일관성. 너무 짧으면 봇, 너무 일정하면 자동매매 | 20% |
-| **자산집중도** | 거래 자산의 집중도. 너무 분산하면 무전략, 너무 집중하면 도박 | 25% |
-| **손익일관성** | 수익/손실 분포의 변동성. 일관된 패턴이 전략적 행동의 증거 | 25% |
-
-**임계값**: 종합 점수 ≥ 60점만 신호 후보로 등록.
-
-### 3.4 트레이딩 지표 계산
+후보로 살아남은 지갑에 대해 Nansen Profiler로 라벨 + PnL 조회.
 
 ```typescript
-interface AgentMetrics {
-  return30d: number;            // 30일 수익률 (%)
-  sharpeRatio: number;          // 평균수익 / 표준편차
-  maxDrawdown: number;          // 최대 낙폭 (%, 음수)
-  winRate: number;              // 승률 (%)
-  totalTrades: number;
-  avgHoldingPeriodHours: number;
-  totalVolumeUsdc: number;
+// lib/nansen.ts
+
+async function enrichWithNansen(walletAddress: string) {
+  // 라벨 조회 (100 credits — common labels만 사용)
+  const labelsRes = await nansen.profiler.labels({
+    address: walletAddress,
+  });
+
+  // PnL summary (1 credit)
+  const pnlRes = await nansen.profiler.pnlSummary({
+    address: walletAddress,
+    chain: 'base',
+  });
+
+  return {
+    labels: labelsRes.labels || [],
+    pnl30d: pnlRes.pnl_30d,
+    winRate: pnlRes.win_rate,
+    realizedUsd: pnlRes.realized_usd,
+  };
 }
 ```
 
-### 3.5 행동 유형 분류
+### 4.3 품질 점수 계산
+
+Nansen 라벨 유무에 따라 다른 산식 적용.
 
 ```typescript
-type BehaviorType =
-  | 'likely_systematic'   // 자동매매/봇 패턴 — 안정적, 반복적
-  | 'likely_manual'       // 수동 트레이딩 — 비정형, 인간 패턴
-  | 'unknown';            // 판별 불가
+function calculateQualityScore(
+  walletData: WalletActivity,
+  nansenData: NansenEnrichment | null
+): { score: number; tier: QualityTier; signals: string[] } {
+
+  // Nansen 라벨이 있으면 → '검증' 트랙
+  if (nansenData?.labels.length) {
+    const score = calculateVerifiedScore(nansenData);
+    return {
+      score,
+      tier: 'verified',
+      signals: nansenData.labels,  // ['Smart Money', 'Top PnL Trader']
+    };
+  }
+
+  // Nansen 라벨이 없으면 → '신규 후보' 트랙
+  const selfScore = calculateSelfScore(walletData);
+  return {
+    score: selfScore,
+    tier: 'discovered',
+    signals: ['Newly Discovered'],  // 자체 발굴
+  };
+}
+
+// 검증 트랙: Nansen 데이터에 가중치
+function calculateVerifiedScore(nansen: NansenEnrichment): number {
+  const labelBonus = nansen.labels.includes('Smart Money') ? 30 :
+                     nansen.labels.includes('Whale') ? 20 :
+                     nansen.labels.includes('Top PnL Trader') ? 25 : 10;
+
+  return clamp(
+    50 +                                   // 기본 50점 (Nansen 라벨 있음)
+    labelBonus +                           // 라벨별 보너스
+    Math.min(20, nansen.pnl30d / 5),       // PnL 기여 (max 20)
+    50, 100
+  );
+}
+
+// 신규 후보 트랙: 자체 활동 메트릭만으로
+function calculateSelfScore(activity: WalletActivity): number {
+  const volumeScore = Math.min(20, activity.totalVolumeUsd / 10000);  // 0-20
+  const consistencyScore = activity.activeDays30d / 30 * 25;          // 0-25
+  const diversityScore = Math.min(20, activity.uniqueAssets * 4);     // 0-20
+  const recentScore = activity.daysSinceLastTrade < 7 ? 15 : 5;       // 5 or 15
+
+  return clamp(volumeScore + consistencyScore + diversityScore + recentScore, 0, 80);
+  // 검증되지 않았으니 max 80점으로 제한
+}
 ```
 
-분류 근거: 거래 시간 분포(잠자는 시간 거래 여부), 가스비 패턴, 사이즈 일관성.
-
-### 3.6 Flock LLM 전략 태깅
-
-Flock LLM이 메트릭과 거래 패턴을 보고 다음을 자동 태깅한다.
-
-- **트레이딩 스타일**: 공격형 / 중립형 / 보수형
-- **전략 태그**: `["ETH 롱", "고빈도", "스윙", "DeFi 알트", "스테이블 차익"]` 등 자유 태그 1-3개
-
-### 3.7 Signal DB 스키마
+### 4.4 마켓 진입 임계값
 
 ```typescript
-interface IndexedSignal {
+const QUALITY_THRESHOLDS = {
+  verified: 60,      // Nansen 라벨 있는 지갑은 60점 이상
+  discovered: 50,    // 신규 후보는 50점 이상
+}
+```
+
+이 기준 통과 지갑만 Signal로 등록.
+
+### 4.5 Credit 비용 최적화
+
+Nansen Profiler labels는 100 credits로 가장 비쌈. 무한정 호출할 수 없음.
+
+전략:
+- **Gate 1 통과한 지갑만 Nansen 호출** (1차 필터로 호출 횟수 제어)
+- **결과 캐싱**: 24시간 캐시 → 같은 지갑 재호출 방지
+- **선택적 호출**: PnL이 임계값 이상인 지갑만 라벨 조회 (PnL=1 credit으로 사전 필터)
+
+```typescript
+async function enrichOnlyIfPromising(address: string) {
+  // 먼저 PnL만 조회 (싸다)
+  const pnl = await nansen.profiler.pnlSummary({ address, chain: 'base' });
+
+  if (pnl.pnl_30d < 5 && pnl.win_rate < 50) {
+    return null;  // 라벨 조회 생략
+  }
+
+  // 유망한 지갑만 라벨 조회
+  return await nansen.profiler.labels({ address });
+}
+```
+
+---
+
+## 5. Signal 데이터 모델 (Updated)
+
+```typescript
+interface Signal {
   id: string;
-  sourceAgentAddress: string;
-  source: 'external' | 'user' | 'derived';
-  ownerAddress?: string;        // user / derived일 때
-  parentSignalId?: string;      // derived일 때 원본 신호 ID
-  isAA: boolean;
-  metrics: AgentMetrics;
-  strategyScore: number;        // 0-100
-  behaviorType: BehaviorType;
+  sourceWalletAddress: string;
+  source: 'indexed' | 'user' | 'derived';
+  ownerAddress?: string;            // user / derived일 때
+  parentSignalId?: string;
+  rootSignalId?: string;
+  derivedDepth: number;
+
+  // 품질 정보
+  qualityTier: 'verified' | 'discovered';
+  qualityScore: number;             // 0-100
+
+  // Nansen 데이터 (verified일 때)
+  nansenLabels: string[];           // ['Smart Money', 'Top PnL Trader']
+  nansenPnl30d: number | null;
+  nansenWinRate: number | null;
+
+  // 자체 인덱싱 데이터 (모든 신호)
+  totalTrades30d: number;
+  totalVolumeUsd: number;
+  uniqueAssets: number;
+  activeDays30d: number;
+  daysSinceLastTrade: number;
+
+  // 행동 정보 (Flock LLM)
   tradingStyle: 'aggressive' | 'neutral' | 'conservative';
   strategyTags: string[];
-  pnlHistory: { date: string; value: number }[];
+  tradingPairs: string[];
+  recentTrades: RawTrade[];
+
+  // 마켓 정보
+  priceUsdc: number;
+  listingScore: number;
   registeredAt: number;
+  lastActiveAt: number;
   totalSales: number;
-  lastIndexedBlock: number;
 }
 ```
 
 ---
 
-## 4. Layer 2 — 마켓플레이스 상세
+## 6. 마켓플레이스 노출 정책
 
-### 4.1 신호 노출 정책
+### 6.1 카테고리별 분리 노출
 
-#### 랭킹 점수 (Listing Score)
+마켓 상단을 두 개 섹션으로 분리.
 
 ```
-listing_score =
-    0.40 × normalize(return30d)
-  + 0.25 × normalize(sharpeRatio)
-  + 0.20 × strategyScore / 100
-  + 0.15 × normalize(-maxDrawdown)
+┌─────────────────────────────────────────┐
+│  [검증된 트레이더] (verified)              │
+│   Nansen 라벨 보유 / 신뢰도 높음           │
+│   기본 가격대 높음 (예: 1.0~3.0 USDC)     │
+└─────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│  [신규 발굴] (discovered)                 │
+│   자체 인덱싱 / 검증 전이지만 활동량 우수    │
+│   저렴한 가격 (예: 0.3~0.8 USDC)          │
+│   "Early Discovery" 배지                  │
+└─────────────────────────────────────────┘
 ```
 
-높은 점수 = 상단 노출.
+이 구조의 장점:
+- 검증된 트레이더는 안전한 선택지
+- 신규 발굴은 저렴하지만 잠재 고수익 → 데이터 발굴 게임화
+- 유저가 신규 발굴자를 사고 그게 대박 나면 → 우리 마켓의 고유 가치 증명
 
-#### 필터
-- 매매 성향: 전체 / 공격형 / 중립형 / 보수형
-- 행동 유형: 전체 / systematic / manual
-- 원본 여부: 전체 / external / user / derived
-- 가격 범위: 슬라이더
+### 6.2 가격 책정
 
-#### 정렬
-- 추천순 (listing_score)
-- 수익률 높은순
-- 안정성 (Sharpe) 높은순
-- 가격 낮은순
-- 최근 활동순
+```typescript
+function calculatePrice(signal: Signal): number {
+  const basePrice = signal.qualityTier === 'verified' ? 1.00 : 0.30;
+  const scoreFactor = signal.qualityScore / 50;
+  const pnlFactor = (signal.nansenPnl30d ?? 0) > 0
+    ? Math.min(2.0, 1 + signal.nansenPnl30d / 100)
+    : 1.0;
 
-### 4.2 상품 상세 페이지
-
-표시 정보:
-- 원천 에이전트 주소 + Base Explorer 링크
-- 원본/파생 여부 명시 (derived면 원본 신호 링크 표시)
-- 30일 PnL 곡선
-- 4대 지표 (수익률 / Sharpe / MDD / 승률)
-- 전략성 점수 + 4개 세부 지표 breakdown
-- 행동 유형 (systematic / manual)
-- 최근 거래 5건 (자산 페어, 방향, 시간)
-- 가격 + x402 구매 버튼
-
-### 4.3 가격 결정
-
-- **external 신호**: 자동 가격 책정 (전략성 점수 + 수익률 기반)
-- **user/derived 신호**: 등록 시 자동 산정 가격 또는 유저가 조정 가능
-
-기본 산식:
-```
-price = base_price × (1 + return_factor) × strategy_factor
-base_price = 0.30 USDC
-return_factor = clamp(return30d / 100, 0, 2)
-strategy_factor = strategyScore / 50
+  return clamp(basePrice * scoreFactor * pnlFactor, 0.30, 5.00);
+}
 ```
 
-가격 범위: 0.30 ~ 5.00 USDC.
+### 6.3 필터
+
+```typescript
+interface SignalFilters {
+  qualityTier?: 'verified' | 'discovered' | 'all';
+  tradingStyle?: 'aggressive' | 'neutral' | 'conservative';
+  nansenLabels?: string[];           // 'Smart Money', 'Whale' 등
+  minQualityScore?: number;
+  priceRange?: [number, number];
+  source?: 'indexed' | 'user' | 'derived';
+}
+```
 
 ---
 
-## 5. Layer 3 — 유저 상세
+## 7. Layer 4 — 환원 및 재인덱싱
 
-### 5.1 온보딩 플로우
+### 7.1 후속 행동 추적 (자체 인덱서 활용)
 
-```
-[Step 1/3] 리스크 성향
-  안전 추구 / 균형 / 고수익 추구
-
-[Step 2/3] 선호 자산
-  대형 안정 (BTC/ETH) / DeFi 알트 / 자유
-
-[Step 3/3] 투자 기간
-  단기 (1일-1주) / 중기 (1-4주) / 장기 (1달+)
-
-      ↓ Flock LLM 분류
-
-  공격형 / 중립형 / 보수형
-
-      ↓ 동의 단계
-
-  "내 거래 데이터가 익명으로 인덱싱되어 마켓에서 판매될 수 있으며,
-   판매 수익의 80%를 자동 수령합니다." (체크박스 필수)
-
-      ↓ 프로필 생성
-
-  유저 프로필 + 매매 성향 저장
-```
-
-### 5.2 신호 구매 및 실행
-
-```
-1. 마켓 탐색 (성향 매칭 추천 우선)
-2. 신호 상세 확인
-3. 'x402로 구매' 클릭
-4. USDC 결제 요청
-   - 유저 지갑이 충분 → 진행
-   - 부족 → 충전 안내
-5. 결제 트랜잭션 해시 반환
-6. 신호 데이터 수신 (자산 페어, 방향, 진입가, 손절가, 목표가)
-7. 실행 옵션 선택:
-   - 자동 실행: AgentKit이 즉시 DEX 스왑
-   - 수동 실행: 유저가 직접 지갑 사용
-8. 스왑 완료 → 트랜잭션 해시 + 결과 표시
-```
-
-### 5.3 실행 모듈 연동
-
-**자동 실행 (AgentKit)**
-- AgentKit으로 발급된 유저 전용 지갑이 신호 따라 자동 스왑
-- 슬리피지 한도, 최대 사이즈 등 안전장치 설정 가능
-
-**수동 실행**
-- 유저가 외부 지갑(MetaMask 등)으로 직접 실행
-- AgentAlpha는 추적만 (지갑 주소를 통해 후속 행동 인덱싱)
-
----
-
-## 6. Layer 4 — 환원 및 재인덱싱 상세
-
-### 6.1 후속 온체인 행동 재감지
-
-신호 구매 후 N시간(default: 24시간) 동안 유저 지갑의 트랜잭션을 모니터링한다.
+v5는 Nansen profiler로 추적했지만, v6는 **이미 Layer 0이 전체 거래를 인덱싱**하므로 자체 데이터만으로 추적 가능.
 
 ```typescript
 async function trackPostPurchaseBehavior(
   buyerAddress: string,
   signalId: string,
-  windowHours: number = 24
+  purchaseTimestamp: number,
+  windowHours = 24
 ) {
-  const purchaseTime = await getPurchaseTimestamp(signalId, buyerAddress);
-  const endTime = purchaseTime + windowHours * 3600;
-
-  const txs = await alchemy.core.getAssetTransfers({
-    fromAddress: buyerAddress,
-    fromBlock: blockAtTime(purchaseTime),
-    toBlock: blockAtTime(endTime),
-    category: ['erc20'],
+  // 자체 DB에서 유저 거래 조회
+  const trades = await db.trades.findMany({
+    where: {
+      walletAddress: buyerAddress,
+      timestamp: {
+        gte: purchaseTimestamp,
+        lte: purchaseTimestamp + windowHours * 3600,
+      },
+    },
   });
 
-  for (const tx of txs.transfers) {
-    if (await isDexInteraction(tx.hash)) {
-      await classifyDerivedBehavior(tx, signalId);
+  const originalSignal = await getSignal(signalId);
+
+  for (const tx of trades) {
+    const similarity = checkSimilarity(tx, originalSignal, purchaseTimestamp);
+    if (isDerived(similarity)) {
+      await createDerivedSignal({
+        sourceWalletAddress: buyerAddress,
+        parentSignalId: signalId,
+        rootSignalId: originalSignal.rootSignalId || signalId,
+        depth: (originalSignal.derivedDepth || 0) + 1,
+        evidenceTxHash: tx.hash,
+      });
     }
   }
 }
 ```
 
-### 6.2 원본 유사도 판별
+Nansen API 호출 없이 자체 DB만 쓰므로 비용 0.
 
-3가지 차원으로 비교한다.
+### 7.2 수익 분배
 
-```typescript
-interface SimilarityCheck {
-  // 1. 자산 페어 일치
-  samePair: boolean;
-
-  // 2. 방향 일치 (매수/매도)
-  sameDirection: boolean;
-
-  // 3. 시간 근접도 (구매 후 N시간 이내)
-  timeProximityScore: number;  // 0-1
-}
-
-function isDerived(check: SimilarityCheck): boolean {
-  return check.samePair
-      && check.sameDirection
-      && check.timeProximityScore > 0.5;
-}
 ```
-
-조건 충족 → derived 신호로 태깅, 원본 신호 ID와의 관계 저장.
-
-### 6.3 derived 신호 처리
-
-derived 신호가 마켓에 올라가도 원본 신호와의 관계는 영구 보존된다.
-
-```typescript
-interface DerivedRelation {
-  derivedSignalId: string;
-  parentSignalId: string;
-  similarity: number;          // 0-1
-  detectedAt: number;
-  txHashes: string[];          // 증거 트랜잭션
-}
-```
-
-### 6.4 derived 깊이 제한
-
-derived 신호가 또 다른 derived를 낳는 무한 체인을 방지한다.
-
-- **MAX_DERIVED_DEPTH**: 2 (root → derived → derived까지만)
-- 3단계 이상 derived는 root 신호로 직접 매핑하여 정산
-- 구현 시 `parent_signal_id`를 따라 root까지 거슬러 올라감
-
-### 6.5 수익 배분 로직
-
-```typescript
-async function distributeRevenue(saleEvent: SaleEvent) {
-  const signal = await getSignal(saleEvent.signalId);
-  const price = saleEvent.priceUsdc;
-
-  switch (signal.source) {
-    case 'external':
-      // 100% 플랫폼 수익
-      await transferToPlatform(price);
-      break;
-
-    case 'user':
-      // 80% 유저, 20% 플랫폼
-      await transferTo(signal.ownerAddress!, price * 0.8);
-      await transferToPlatform(price * 0.2);
-      break;
-
-    case 'derived':
-      // 50% 원본 기여자, 30% 파생 기여자, 20% 플랫폼
-      const root = await findRootSignal(signal.id);
-      if (root.source === 'user') {
-        await transferTo(root.ownerAddress!, price * 0.5);
-      } else {
-        await transferToPlatform(price * 0.5);
-      }
-      await transferTo(signal.ownerAddress!, price * 0.3);
-      await transferToPlatform(price * 0.2);
-      break;
-  }
-}
+indexed (verified) 신호 판매: 플랫폼 100%
+indexed (discovered) 신호 판매: 플랫폼 100%
+user 신호 판매: 유저 80% + 플랫폼 20%
+derived 신호 판매:
+  - root가 user면: 원본 유저 50%
+  - root가 indexed면: 플랫폼 50%
+  - 파생자 30%
+  - 플랫폼 20%
 ```
 
 ---
 
-## 7. 데이터 모델 전체 정리
-
-### 7.1 IndexedSignal (Signal DB의 모든 row)
-
-```typescript
-interface IndexedSignal {
-  id: string;
-  sourceAgentAddress: string;
-  source: 'external' | 'user' | 'derived';
-  ownerAddress?: string;
-  parentSignalId?: string;
-  isAA: boolean;
-  metrics: AgentMetrics;
-  strategyScore: number;
-  strategyBreakdown: {
-    repetition: number;
-    turnover: number;
-    concentration: number;
-    consistency: number;
-  };
-  behaviorType: BehaviorType;
-  tradingStyle: 'aggressive' | 'neutral' | 'conservative';
-  strategyTags: string[];
-  pnlHistory: { date: string; value: number }[];
-  priceUsdc: number;
-  registeredAt: number;
-  totalSales: number;
-  lastIndexedBlock: number;
-}
-```
-
-### 7.2 UserProfile
-
-```typescript
-interface UserProfile {
-  walletAddress: string;
-  agentId: string;
-  tradingStyle: 'aggressive' | 'neutral' | 'conservative';
-  riskPreference: 'low' | 'medium' | 'high';
-  assetPreference: 'large' | 'defi' | 'all';
-  timeHorizon: 'short' | 'mid' | 'long';
-  consentToIndexing: boolean;
-  consentTimestamp: number;
-  createdAt: number;
-  mySignalIds: string[];
-}
-```
-
-### 7.3 SaleEvent
-
-```typescript
-interface SaleEvent {
-  id: string;
-  signalId: string;
-  buyerAddress: string;
-  priceUsdc: number;
-  txHash: string;
-  timestamp: number;
-  distribution: {
-    toRoot?: { address: string; amount: number };
-    toDerived?: { address: string; amount: number };
-    toPlatform: number;
-  };
-}
-```
-
-### 7.4 DerivedRelation
-
-```typescript
-interface DerivedRelation {
-  derivedSignalId: string;
-  parentSignalId: string;
-  rootSignalId: string;       // 최상위 root까지의 reference
-  depth: number;              // 1 = 첫 번째 derived
-  similarity: number;
-  detectedAt: number;
-  evidenceTxHashes: string[];
-}
-```
-
-### 7.5 Transaction
-
-```typescript
-interface Transaction {
-  hash: string;
-  type:
-    | 'signal_buy'
-    | 'revenue_receive_owner'
-    | 'revenue_receive_root'
-    | 'revenue_receive_derived'
-    | 'swap_in'
-    | 'swap_out'
-    | 'deposit'
-    | 'withdraw';
-  description: string;
-  amountUsdc: number;
-  timestamp: number;
-  explorerUrl: string;
-  relatedSignalId?: string;
-}
-```
-
----
-
-## 8. API 엔드포인트
-
-```
-app/api/
-├── classify-style/route.ts             POST  Flock LLM 성향 분류
-├── consent/route.ts                    POST  인덱싱 동의 저장
-├── agent/
-│   ├── create/route.ts                 POST  AgentKit 지갑 발급
-│   ├── swap/route.ts                   POST  DEX 스왑 실행
-│   └── balance/route.ts                GET   USDC 잔액
-├── indexer/
-│   ├── agents/route.ts                 GET   인덱싱된 AA 목록
-│   ├── agents/[address]/route.ts       GET   특정 에이전트 상세
-│   ├── strategy-score/route.ts         POST  전략성 점수 재계산
-│   └── sync/route.ts                   POST  수동 인덱싱 트리거
-├── signals/
-│   ├── route.ts                        GET   신호 목록 (필터/정렬)
-│   ├── [id]/route.ts                   GET   신호 상세
-│   ├── [id]/derivations/route.ts       GET   해당 신호의 파생 신호 목록
-│   └── [id]/lineage/route.ts           GET   원본까지의 lineage 트리
-├── payment/
-│   └── signal/route.ts                 POST  x402 결제
-├── tracking/
-│   └── post-purchase/route.ts          POST  구매 후 행동 추적 시작
-├── revenue/
-│   ├── distribute/route.ts             POST  결제 후 수익 분배
-│   └── earnings/route.ts               GET   수익 현황
-└── transactions/route.ts               GET   트랜잭션 히스토리
-```
-
----
-
-## 9. 환경변수
+## 8. 환경변수
 
 ```bash
-# Flock.io
+# Alchemy (Layer 0)
+ALCHEMY_API_KEY=
+ALCHEMY_BASE_URL=https://base-mainnet.g.alchemy.com/v2/
+
+# Nansen API (Layer 1 검증)
+NANSEN_API_KEY=
+NANSEN_API_BASE_URL=https://api.nansen.ai/api/v1
+
+# PancakeSwap AI (Layer 3 실행)
+PANCAKESWAP_AI_MODE=plugin
+PANCAKESWAP_CHAIN_ID=8453
+PANCAKESWAP_SLIPPAGE_BPS=100
+
+# Flock.io LLM
 FLOCK_API_KEY=
 FLOCK_API_BASE_URL=https://platform.flock.io/api/v1
-
-# AgentKit
-CDP_API_KEY_NAME=
-CDP_API_KEY_PRIVATE_KEY=
+FLOCK_MODEL=gemini-3-flash
 
 # x402
 X402_FACILITATOR_URL=https://x402.org/facilitator
 
-# Alchemy
-ALCHEMY_API_KEY=
-ALCHEMY_BASE_SEPOLIA_URL=https://base-sepolia.g.alchemy.com/v2/
-
 # Base
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
-BASE_SEPOLIA_CHAIN_ID=84532
+BASE_RPC_URL=https://mainnet.base.org
+BASE_CHAIN_ID=8453
+BASE_EXPLORER=https://basescan.org
+
+# DEX 라우터
 UNISWAP_V3_ROUTER=0x2626664c2603336E57B271c5C0b26F421741e481
 AERODROME_ROUTER=0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43
 
 # 플랫폼 지갑
-PLATFORM_WALLET_PRIVATE_KEY=
 PLATFORM_WALLET_ADDRESS=
+PLATFORM_WALLET_PRIVATE_KEY=
 
-# 수익 분배 비율
+# 수익 분배
 USER_REVENUE_SHARE=0.8
 DERIVED_ROOT_SHARE=0.5
 DERIVED_OWNER_SHARE=0.3
 DERIVED_PLATFORM_SHARE=0.2
 
-# 추적 윈도우
+# 활동 임계값
+MIN_TOTAL_TRADES=5
+MIN_UNIQUE_ASSETS=2
+MIN_VOLUME_USD=1000
+MIN_ACTIVE_DAYS=3
+
+# 품질 임계값
+MIN_VERIFIED_SCORE=60
+MIN_DISCOVERED_SCORE=50
+
+# 추적
 POST_PURCHASE_TRACKING_HOURS=24
 SIMILARITY_THRESHOLD=0.5
 MAX_DERIVED_DEPTH=2
 
-# 인덱서 임계값
-MIN_TOTAL_TRADES=10
-MIN_UNIQUE_ASSETS=2
-MIN_VOLUME_USDC=500
-MIN_ACTIVE_DAYS=5
-MIN_STRATEGY_SCORE=60
+# Nansen 캐시
+NANSEN_CACHE_HOURS=24
+
+# 개발
+NEXT_PUBLIC_USE_MOCK=true
 ```
 
 ---
 
-## 10. 화면 목록
+## 9. 화면 변경사항 (v5 대비)
 
-| 라우트 | 화면 | 핵심 데이터 |
-|--------|------|-----------|
-| `/onboarding` | 설문 + 동의 | Flock LLM, 동의 체크 |
-| `/dashboard` | 에이전트 대시보드 | 잔액, 내 신호 상태, 최근 거래 |
-| `/market` | 마켓플레이스 | 신호 목록, 필터, 정렬 |
-| `/market/[id]` | 신호 상세 | 메트릭, lineage, 구매 버튼 |
-| `/earnings` | 수익 대시보드 | 트레이딩 PnL + 신호 판매 + derived 분배 |
-| `/wallet` | 지갑/정산 | USDC 잔액, 트랜잭션, 분배 내역 |
-| `/my-signals` | 내 신호 관리 | 등록된 내 신호 + derived 트리 |
+### 마켓플레이스
+- 두 개 섹션으로 분리: **검증된 트레이더 / 신규 발굴**
+- 각 카드에 `qualityTier` 배지
+- Nansen 라벨이 있으면 보라색 라벨 칩 (Smart Money / Whale 등)
+- 신규 발굴은 "Early Discovery" 골드 배지
 
----
+### 신호 상세
+- verified: Nansen 라벨 + PnL summary + 자체 활동 데이터 둘 다 표시
+- discovered: 자체 활동 데이터만 강조 (활동량/일관성/다양성)
 
-## 11. Acceptance Criteria
-
-| ID | 시나리오 | 기대 결과 |
-|----|---------|---------|
-| AC-01 | 마켓 진입 | 전략성 점수 60+ 신호만 노출 |
-| AC-02 | 비전략성 주소 차단 | MEV 봇 / 단순 스왑 봇 인덱싱 제외 확인 |
-| AC-03 | 신호 상세 | 4대 지표 + 전략성 점수 breakdown + lineage 표시 |
-| AC-04 | x402 결제 | 트랜잭션 해시 + USDC 차감 확인 |
-| AC-05 | 자동 실행 | AgentKit 스왑 트랜잭션 생성 + Explorer 링크 |
-| AC-06 | derived 감지 | 24시간 내 유사 거래 → derived 태깅 + 원본 관계 저장 |
-| AC-07 | 수익 분배 | source별 분배 비율대로 USDC 송금 확인 |
-| AC-08 | 동의 미체크 | 인덱싱 동의 안 한 유저는 user 신호 등록 안 됨 |
-| AC-09 | depth 제한 | derived의 derived는 root로 직접 매핑 |
+### 신규 페이지: `/discoveries`
+- 신규 발굴 트레이더만 모은 페이지
+- "이 트레이더가 검증되기 전에 발견하세요" 컨셉
+- 정렬: 최근 등록순 / 자체 점수 높은순
 
 ---
 
-## 12. 6시간 빌드 계획
+## 10. 6시간 빌드 계획 (Updated)
 
-해커톤 시간 제약을 고려한 우선순위.
-
-### Phase 1 — Core (0:00 ~ 2:30)
-- 프로젝트 셋업, 디자인 토큰
-- 온보딩 설문 + Flock LLM 분류
-- AgentKit 지갑 발급
-- 마켓플레이스 목업 (mock data 12개)
-
-### Phase 2 — Marketplace (2:30 ~ 4:00)
-- 신호 상세 페이지 + lineage 표시
-- x402 결제 플로우
-- AgentKit 스왑 1건 시연
-
-### Phase 3 — Differentiation (4:00 ~ 5:30)
-- 전략성 점수 계산 (mock 기반)
-- derived 신호 시뮬레이션 (1건)
-- 수익 분배 트랜잭션 1건 시연
-
-### Phase 4 — Polish (5:30 ~ 6:00)
-- 발표 준비, 데모 시나리오 정리
-- 폴백 플랜 점검
+| Phase | 시간 | 작업 |
+|-------|------|------|
+| 0 | 0:00–0:30 | 셋업, 디자인 토큰, 타입 정의, mock 데이터 (verified 6 + discovered 6) |
+| 1 | 0:30–1:30 | 공통 컴포넌트 + 온보딩 + Flock LLM 분류 |
+| 2 | 1:30–3:00 | Layer 0 (Alchemy) + Layer 1 (Nansen 검증) + 마켓 화면 |
+| 3 | 3:00–4:00 | 신호 상세 + x402 결제 플로우 |
+| 4 | 4:00–4:45 | PancakeSwap AI 통합 + deep link 시연 |
+| 5 | 4:45–5:30 | derived 추적 + 수익 분배 1건 시연 |
+| 6 | 5:30–6:00 | /discoveries 페이지 + 발표 자료 |
 
 ### 폴백 우선순위
 
-실제 구현 못하면 mock으로 대체할 순서:
-
-1. Alchemy 인덱싱 → mock data
-2. 전략성 점수 → 사전 계산된 mock 점수
-3. derived 감지 → 시연용 1건 하드코딩
-4. x402 Sepolia 미지원 → USDC 전송 트랜잭션으로 시연
+1. Alchemy 인덱싱 미완 → mockSignals 12개 (verified 6 + discovered 6)
+2. Nansen API 미연동 → 모든 mock signal을 'discovered' 처리, 일부만 verified로 하드코딩
+3. PancakeSwap AI 자동 실행 미동작 → deep link 모드만
+4. derived 자동 추적 미동작 → 사전 시드된 mock derived 1개
 
 ---
 
-## 13. 핵심 차별점 요약
+## 11. 핵심 차별점 (v5 → v6)
 
-| 구분 | 기존 카피트레이딩 | AgentAlpha v4 |
-|------|-----------------|--------------|
-| 데이터 소스 | 플랫폼 자체 트레이더 | Base 온체인 전체 AA 에이전트 |
-| 검증 방식 | 플랫폼 주장 (불투명) | 전략성 점수 + 온체인 검증 |
-| 봇/MEV 필터링 | 없음 | 비전략성 주소 자동 제거 |
-| 데이터 소유권 | 플랫폼 독점 | 유저 귀속 + 동의 기반 |
-| 수익 환원 | 없음 | 원본 80% + derived 깊이별 분배 |
-| 결제 방식 | 월정액 구독 | x402 단건 마이크로페이먼트 |
-| 후속 추적 | 없음 | derived 신호 자동 감지 + 분배 |
+| 항목 | v5 | v6 |
+|------|-----|------|
+| 데이터 풀 | Nansen Smart Money 5천 지갑 한정 | Base 전체 활성 트레이더 |
+| Nansen 역할 | 데이터 소스 | 검증/라벨링 도구 |
+| 신규 발굴 | 불가능 | 가능 ('discovered' 트랙) |
+| 가격 차별화 | 없음 | verified vs discovered |
+| 데이터 소유권 | Nansen에 의존 | 자체 인덱싱 |
+| 차별화 강도 | 약함 (Nansen 데이터 가공) | 강함 (자체 마켓 + Nansen 보강) |
 
 ---
 
-_AgentAlpha 전체 기획서 v4.0 · Base Agent Hackathon #1 · 2025_
+## 12. Acceptance Criteria
+
+| ID | 시나리오 | 기대 결과 |
+|----|---------|---------|
+| AC-01 | 마켓 진입 | verified + discovered 신호 각각 6개 이상 표시 |
+| AC-02 | qualityTier 필터 | 탭 전환으로 verified만 / discovered만 필터링 |
+| AC-03 | Nansen 라벨 | verified 신호에 Nansen 라벨 칩 표시 |
+| AC-04 | 신호 구매 | x402 결제 트랜잭션 해시 반환 |
+| AC-05 | DEX 실행 | PancakeSwap AI deep link 또는 자동 실행 트랜잭션 확인 |
+| AC-06 | 후속 추적 | 자체 DB에서 24h 내 유저 거래 감지 (Nansen 호출 없이) |
+| AC-07 | derived 등록 | 유사 거래 → derived 태깅 + 원본 관계 저장 |
+| AC-08 | 수익 분배 | source별 비율대로 USDC 분배 트랜잭션 확인 |
+| AC-09 | 동의 미체크 | 인덱싱 동의 안 한 유저는 user 신호 등록 안 됨 |
+| AC-10 | depth 제한 | derived의 derived는 root로 직접 매핑 |
+| AC-11 | /discoveries | 신규 발굴 페이지 단독 노출 |
+
+---
+
+_AgentAlpha v6.0 · 자체 인덱싱 + Nansen 검증 보강 · Base Agent Hackathon #1 · 2025_
