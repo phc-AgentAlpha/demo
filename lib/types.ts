@@ -6,13 +6,15 @@ export type RiskPreference = 'low' | 'medium' | 'high';
 export type AssetPreference = 'large' | 'defi' | 'all';
 export type TimeHorizon = 'short' | 'mid' | 'long';
 export type ClassificationSource = 'flock' | 'fallback';
-export type ChainStatus = 'awaiting_wallet' | 'pending' | 'confirmed' | 'failed';
+export type ChainStatus = 'awaiting_wallet' | 'awaiting_agent' | 'pending' | 'confirmed' | 'failed';
+export type AgentWalletProvider = 'deterministic-dev' | 'cdp-smart-account';
 
 export interface UserProfile {
   walletAddress: string;
   paymentWalletAddress?: string;
   agentId?: string;
   agentWalletAddress?: string;
+  agentWalletProvider?: AgentWalletProvider;
   tradingStyle: TradingStyle;
   riskPreference: RiskPreference;
   assetPreference: AssetPreference;
@@ -113,12 +115,65 @@ export interface PurchaseEvent {
   signalId: string;
   buyerAddress: string;
   priceUsdc: number;
-  paymentMode: 'x402' | 'real_usdc_transfer';
+  paymentMode: 'x402';
+  paymentExecutor?: 'agent' | 'user_wallet';
+  agentWalletAddress?: string;
+  x402ResourceUrl?: string;
+  x402Settlement?: X402SettlementProof;
   paymentTxHash?: string;
   paymentStatus: ChainStatus;
   explorerUrl?: string;
   timestamp: number;
   confirmedAt?: number;
+}
+
+export interface X402PaymentRequest {
+  protocol: 'x402';
+  version: 2;
+  scheme: 'exact';
+  network: 'eip155:8453';
+  resourceUrl: string;
+  facilitatorUrl: string;
+  paymentExecutor: 'agent';
+  agentWalletAddress: string;
+  receiverAddress: `0x${string}`;
+  assetAddress: `0x${string}`;
+  amountUnits: string;
+  amountUsdc: number;
+  paymentRequirements: {
+    scheme: 'exact';
+    network: 'eip155:8453';
+    amount: string;
+    asset: `0x${string}`;
+    payTo: `0x${string}`;
+    maxTimeoutSeconds: number;
+    extra: {
+      name: 'USD Coin';
+      version: '2';
+      assetTransferMethod: 'eip3009';
+    };
+  };
+  settlementProof: 'x402_facilitator_settlement_response';
+}
+
+export interface X402SettlementProof {
+  success: true;
+  payer: `0x${string}`;
+  transaction: `0x${string}`;
+  network: 'eip155:8453';
+  amount: string;
+  resourceUrl: string;
+  paymentResponseHeader: string;
+  verifiedBy: 'x402_facilitator' | 'test_x402_mock';
+  settledAt: number;
+}
+
+export interface AgentIssuance {
+  agentId: string;
+  walletAddress: string;
+  walletProvider: AgentWalletProvider;
+  seed: string;
+  issuedAt: number;
 }
 
 export interface ExecutionEvent {
@@ -164,17 +219,4 @@ export interface RevenueDistributionEvent {
     reason: string;
   }>;
   createdAt: number;
-}
-
-export interface TransferRequest {
-  chainId: `0x${string}`;
-  to: `0x${string}`;
-  from?: `0x${string}`;
-  value: `0x${string}`;
-  data: `0x${string}`;
-  tokenAddress: `0x${string}`;
-  tokenSymbol: 'USDC';
-  amountUnits: string;
-  amountUsdc: number;
-  receiverAddress: `0x${string}`;
 }

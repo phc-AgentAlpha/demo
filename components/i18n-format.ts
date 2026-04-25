@@ -27,6 +27,8 @@ export function statusLabelKey(value: ChainStatus | string): TranslationKey | nu
     pending: 'statusPending',
     failed: 'statusFailed',
     awaiting_wallet: 'statusAwaitingWallet',
+    awaiting_agent: 'statusAwaitingAgent',
+    agent_paying: 'statusAgentPaying',
     connecting: 'statusConnecting',
     submitted: 'statusSubmitted',
     confirming: 'statusConfirming',

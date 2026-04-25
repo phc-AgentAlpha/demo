@@ -2,6 +2,10 @@
 node_modules/
 .next/
 next-env.d.ts
+.env
+.env.*
+!.env.example
+.data/
 
 # 현재 코드베이스에 실제 존재하는 AI 도구 상태
 .omx/

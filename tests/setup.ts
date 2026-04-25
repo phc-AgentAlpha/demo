@@ -10,8 +10,10 @@ process.env.DEMO_MAX_SWAP_USDC = '1';
 process.env.PANCAKESWAP_SLIPPAGE_BPS = '100';
 process.env.PLATFORM_WALLET_ADDRESS = '0x1111111111111111111111111111111111111111';
 process.env.NEXT_PUBLIC_ENABLE_REAL_PAYMENTS = 'true';
+process.env.X402_FACILITATOR_URL = 'https://x402.org/facilitator';
 process.env.NEXT_PUBLIC_ENABLE_REAL_SWAPS = 'true';
 process.env.AGENTALPHA_MOCK_TX_VERIFIER = 'true';
+process.env.AGENTALPHA_MOCK_X402_SETTLEMENT = 'true';
 
 beforeEach(() => {
   const file = path.join(os.tmpdir(), `agentalpha-ledger-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);

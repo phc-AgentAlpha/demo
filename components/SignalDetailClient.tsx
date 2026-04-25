@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import type { ExecutionEvent, PurchaseEvent, Signal, TransferRequest } from '@/lib/types';
+import type { ExecutionEvent, PurchaseEvent, Signal, UserProfile, X402PaymentRequest } from '@/lib/types';
 import { StatusChip } from './StatusChip';
 import { useI18n } from './I18nProvider';
 import { qualityLabelKey, statusLabelKey } from './i18n-format';
@@ -43,21 +43,25 @@ async function connectWallet(messages: { noProvider: string; noAccount: string }
   return account;
 }
 
-async function sendTransfer(request: TransferRequest, noProviderMessage: string) {
-  if (!window.ethereum) throw new Error(noProviderMessage);
-  return window.ethereum.request<string>({
-    method: 'eth_sendTransaction',
-    params: [{ from: request.from, to: request.to, value: request.value, data: request.data }],
-  });
+function storedProfile() {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem('userProfile') ?? window.localStorage.getItem('agentalpha_profile');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as UserProfile;
+  } catch {
+    return null;
+  }
 }
 
 export function SignalDetailClient({ signal }: { signal: Signal }) {
   const { t } = useI18n();
   const [walletAddress, setWalletAddress] = useState('');
   const [purchase, setPurchase] = useState<PurchaseEvent | null>(null);
+  const [x402Payment, setX402Payment] = useState<X402PaymentRequest | null>(null);
   const [execution, setExecution] = useState<ExecutionEvent | null>(null);
   const [swapTxHash, setSwapTxHash] = useState('');
-  const [status, setStatus] = useState<'idle' | 'connecting' | 'awaiting_wallet' | 'submitted' | 'confirming' | 'confirmed' | 'preparing_execution' | 'execution_ready' | 'execution_confirming' | 'execution_confirmed' | 'failed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'awaiting_agent' | 'agent_paying' | 'confirming' | 'confirmed' | 'preparing_execution' | 'execution_ready' | 'execution_confirming' | 'execution_confirmed' | 'failed'>('idle');
   const [error, setError] = useState('');
   const [derived, setDerived] = useState<unknown>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -70,21 +74,16 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
     setConfirmOpen(false);
     setError('');
     try {
-      setStatus('connecting');
-      const account = await connectWallet({ noProvider: t('walletNoProvider'), noAccount: t('walletNoAccount') });
-      setWalletAddress(account);
-      setStatus('awaiting_wallet');
-      const intent = await postJson<{ purchase: PurchaseEvent; transferRequest: TransferRequest; warning?: string }>('/api/payment/signal', { signalId: signal.id, buyerAddress: account });
+      setStatus('agent_paying');
+      const profile = storedProfile();
+      const agentWalletAddress = profile?.agentWalletAddress;
+      if (!agentWalletAddress) throw new Error('Agent wallet is missing. Complete onboarding first.');
+      const intent = await postJson<{ purchase: PurchaseEvent; x402: X402PaymentRequest; unlocked: boolean }>('/api/payment/signal', { signalId: signal.id, agentWalletAddress });
       setPurchase(intent.purchase);
-      const txHash = await sendTransfer(intent.transferRequest, t('walletNoProviderShort'));
-      setStatus('submitted');
-      setPurchase({ ...intent.purchase, paymentTxHash: txHash, paymentStatus: 'pending' });
-      setStatus('confirming');
-      const verified = await postJson<{ purchase: PurchaseEvent; unlocked: boolean }>('/api/payment/verify', { purchaseId: intent.purchase.id, paymentTxHash: txHash });
-      setPurchase(verified.purchase);
-      setStatus(verified.unlocked ? 'confirmed' : 'confirming');
-      if (verified.unlocked) {
-        void postJson('/api/tracking/post-purchase', { purchaseId: verified.purchase.id }).catch(() => undefined);
+      setX402Payment(intent.x402);
+      setStatus(intent.unlocked ? 'confirmed' : 'confirming');
+      if (intent.unlocked) {
+        void postJson('/api/tracking/post-purchase', { purchaseId: intent.purchase.id }).catch(() => undefined);
       }
     } catch (err) {
       setStatus('failed');
@@ -194,7 +193,16 @@ export function SignalDetailClient({ signal }: { signal: Signal }) {
           <div className="flex items-center justify-between"><h2 className="text-2xl font-black">{t('signalLivePaymentTitle')}</h2><StatusChip label={statusKey ? t(statusKey) : status} tone={status.includes('confirmed') ? 'success' : status === 'failed' ? 'danger' : 'neutral'} /></div>
           <p className="text-sm text-slate-300">{t('signalLivePaymentHelp')}</p>
           <div className="rounded-2xl bg-ink/70 p-4"><div className="text-sm text-slate-400">{t('signalPrice')}</div><div className="text-3xl font-black text-white">{signal.priceUsdc.toFixed(2)} USDC</div><div className="mt-2 text-xs text-slate-500">{t('detailProtected')}</div></div>
-          <button className="button w-full" disabled={status !== 'idle' && status !== 'failed'} onClick={() => setConfirmOpen(true)}>{status === 'awaiting_wallet' ? t('signalConfirmWallet') : t('signalBuyButton')}</button>
+          <button className="button w-full" disabled={status !== 'idle' && status !== 'failed'} onClick={() => setConfirmOpen(true)}>{status === 'awaiting_agent' ? t('signalConfirmWallet') : t('signalBuyButton')}</button>
+          {x402Payment ? (
+            <div className="space-y-2 rounded-2xl border border-accent/30 bg-accent/10 p-4 text-xs text-accent">
+              <div className="font-bold">{t('signalAgentWallet')}</div>
+              <code className="block break-all">{x402Payment.agentWalletAddress}</code>
+              <div className="pt-2 font-bold">{t('signalX402Resource')}</div>
+              <code className="block break-all">{x402Payment.resourceUrl}</code>
+              <div className="text-slate-300">exact · {x402Payment.network} · {x402Payment.amountUsdc.toFixed(2)} USDC</div>
+            </div>
+          ) : null}
           {purchase?.paymentTxHash ? <TxProof label={t('signalPaymentTx')} hash={purchase.paymentTxHash} explorerUrl={purchase.explorerUrl} status={purchase.paymentStatus} /> : null}
         </section>
 

@@ -67,6 +67,13 @@ export function getRuntimeConfig() {
     x402FacilitatorUrl: process.env.X402_FACILITATOR_URL ?? '',
     x402PaymentToken: process.env.X402_PAYMENT_TOKEN ?? BASE_TOKENS.USDC.address,
     x402ReceiverAddress: optionalAddressEnv('X402_RECEIVER_ADDRESS'),
+    x402ResourceBaseUrl: process.env.X402_RESOURCE_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''),
+    cdp: {
+      agentWalletMode: process.env.CDP_AGENT_WALLET_MODE === 'cdp' ? 'cdp' : 'mock',
+      apiKeyId: process.env.CDP_API_KEY_ID ?? process.env.CDP_API_KEY_NAME ?? '',
+      apiKeySecret: process.env.CDP_API_KEY_SECRET ?? process.env.CDP_API_KEY_PRIVATE_KEY ?? '',
+      walletSecret: process.env.CDP_WALLET_SECRET ?? '',
+    },
     caps: getDemoCaps(),
     flock: getFlockConfig(),
   };

@@ -69,13 +69,9 @@ export function OnboardingForm() {
     setStatus('saving');
     setError('');
     try {
-      const result = await postJson<{ profile: UserProfile }>('/api/profile', { riskPreference, assetPreference, timeHorizon, classification, consentToIndexing: consent });
       const issued = await postJson<AgentIssueResponse>('/api/agent/create', { seed: classification.tradingStyle });
-      const nextProfile = {
-        ...result.profile,
-        agentId: issued.agent.agentId,
-        agentWalletAddress: issued.agent.walletAddress,
-      };
+      const result = await postJson<{ profile: UserProfile }>('/api/profile', { riskPreference, assetPreference, timeHorizon, classification, consentToIndexing: consent, agentId: issued.agent.agentId, agentWalletAddress: issued.agent.walletAddress });
+      const nextProfile = result.profile;
       window.localStorage.setItem('agentalpha_profile', JSON.stringify(nextProfile));
       window.localStorage.setItem('userProfile', JSON.stringify(nextProfile));
       setProfile(nextProfile);
